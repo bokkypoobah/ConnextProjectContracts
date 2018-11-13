@@ -74,6 +74,17 @@ contract ChannelManager {
         uint256 txCount
     );
 
+    event DidChallengeThread (
+        address user,
+        address indexed sender,
+        address indexed receiver,
+        uint256 threadId,
+        address senderAddress, // can be either hub, sender, or receiver
+        uint256[2] weiBalances, // [sender, receiver]
+        uint256[2] tokenBalances, // [sender, receiver]
+        uint256 txCount
+    );
+
     event DidEmptyThread (
         address user,
         address indexed sender,
@@ -750,8 +761,8 @@ contract ChannelManager {
         );
     }
 
-    // non-sender can empty anytime with a state update after startExitThread/WithUpdate is called
-    function fastEmptyThread(
+    // either hub, sender, or receiver can update the thread state in place
+    function challengeThread(
         address user,
         address sender,
         address receiver,
@@ -764,7 +775,7 @@ contract ChannelManager {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
         require(now < channel.threadClosingTime, "channel thread closing time must not have passed");
-        require((msg.sender == hub && sender == user) || (msg.sender == user && receiver == user), "only hub or user, as the non-sender, can call this function");
+        require(msg.sender == hub || msg.sender == sender || msg.sender == receiver, "only hub, sender, or receiver can call this function");
 
         Thread storage thread = threads[sender][receiver][threadId];
         require(thread.status == ThreadStatus.Exiting, "thread must be exiting");
@@ -783,58 +794,20 @@ contract ChannelManager {
         // Note: explicitly set threadRoot == 0x0 because then it doesn't get checked by _isContained (updated state is not part of root)
         _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, txCount, "", sig, bytes32(0x0));
 
-        // deduct sender/receiver wei/tokens about to be emptied from the thread from the total channel balances
-        channel.weiBalances[2] = channel.weiBalances[2].sub(weiBalances[0]).sub(weiBalances[1]);
-        channel.tokenBalances[2] = channel.tokenBalances[2].sub(tokenBalances[0]).sub(tokenBalances[1]);
-
-        // deduct wei balances from total channel wei and reset thread balances
-        totalChannelWei = totalChannelWei.sub(weiBalances[0]).sub(weiBalances[1]);
+        // save the thread balances and txCount
         thread.weiBalances = weiBalances;
-
-        // if user is receiver, send them receiver wei balance
-        if (user == receiver) {
-            user.transfer(weiBalances[1]);
-        // if user is sender, send them remaining sender wei balance
-        } else if (user == sender) {
-            user.transfer(weiBalances[0]);
-        }
-
-        // deduct token balances from channel total balances and reset thread balances
-        totalChannelToken = totalChannelToken.sub(tokenBalances[0]).sub(tokenBalances[1]);
         thread.tokenBalances = tokenBalances;
-
-        // if user is receiver, send them receiver token balance
-        if (user == receiver) {
-            require(approvedToken.transfer(user, tokenBalances[1]), "user [receiver] token withdrawal transfer failed");
-        // if user is sender, send them remaining sender token balance
-        } else if (user == sender) {
-            require(approvedToken.transfer(user, tokenBalances[0]), "user [sender] token withdrawal transfer failed");
-        }
-
         thread.txCount = txCount;
-        thread.status = ThreadStatus.Settled;
 
-        // decrement the channel threadCount
-        channel.threadCount = channel.threadCount.sub(1);
-
-        // if this is the last thread being emptied, re-open the channel
-        if (channel.threadCount == 0) {
-            channel.threadRoot = bytes32(0x0);
-            channel.threadClosingTime = 0;
-            channel.status = ChannelStatus.Open;
-        }
-
-        emit DidEmptyThread(
+        emit DidChallengeThread(
             user,
             sender,
             receiver,
             threadId,
             msg.sender,
-            [channel.weiBalances[0], channel.weiBalances[1]],
-            [channel.tokenBalances[0], channel.tokenBalances[1]],
-            channel.txCount,
-            channel.threadRoot,
-            channel.threadCount
+            thread.weiBalances,
+            thread.tokenBalances,
+            thread.txCount
         );
     }
 
