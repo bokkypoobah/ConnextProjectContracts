@@ -639,6 +639,10 @@ contract ChannelManager {
             require(approvedToken.transfer(user, thread.tokenBalances[0]), "user [sender] token withdrawal transfer failed");
         }
 
+        // zero out thread balances
+        thread.weiBalances = [0, 0];
+        thread.tokenBalances = [0, 0];
+
         // decrement the channel threadCount
         channel.threadCount = channel.threadCount.sub(1);
 
