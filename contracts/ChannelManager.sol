@@ -127,10 +127,10 @@ contract ChannelManager {
         ChannelStatus status;
     }
 
+    //TODO: Remove completely?
     enum ThreadStatus {
         Open,
-        Exiting,
-        Settled
+        Exiting
     }
 
     struct Thread {
@@ -139,6 +139,7 @@ contract ChannelManager {
         uint256 txCount; // persisted onchain even when empty
         ThreadStatus status;
         uint256 threadClosingTime; //TODO possibly just rename to closingTime?
+        bool[2] emptied; // [sender, receiver]
     }
 
     mapping(address => Channel) public channels;
@@ -580,89 +581,7 @@ contract ChannelManager {
     // THREAD DISPUTE METHODS
     // **********************
 
-    function exitSettledThread(
-        address user,
-        address sender,
-        address receiver,
-        uint256 threadId,
-        uint256[2] weiBalances, // [sender, receiver] -> initial balances
-        uint256[2] tokenBalances, // [sender, receiver] -> initial balances
-        bytes proof,
-        string sig
-    ) public noReentrancy {
-        Channel storage channel = channels[user];
-        require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
-        require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
-        require(user == sender || user == receiver, "user must be thread sender or receiver");
-
-        // Thread storage thread = channel.threads[sender][receiver];
-        Thread storage thread = threads[sender][receiver][threadId];
-
-        require(thread.status == ThreadStatus.Settled, "thread must be settled");
-        // We check to make sure that the thread state has been finalized
-        require(thread.threadClosingTime < now, "Thread closing time must have passed");
-
-        // verify initial thread state. Explicitly set txCount and recipient balances to 0
-        _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
-
-        require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
-        require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
-
-        require(thread.weiBalances[1] >= weiBalances[1] && thread.tokenBalances[1] >= tokenBalances[1], "receiver balances may never decrease");
-
-        // deduct sender/receiver wei/tokens about to be emptied from the thread from the total channel balances
-        channel.weiBalances[2] = channel.weiBalances[2].sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
-        channel.tokenBalances[2] = channel.tokenBalances[2].sub(thread.tokenBalances[0]).sub(thread.tokenBalances[1]);
-
-        // deduct wei balances from total channel wei and reset thread balances
-        totalChannelWei = totalChannelWei.sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
-
-        // if user is receiver, send them receiver wei balance
-        if (user == receiver) {
-            user.transfer(thread.weiBalances[1]);
-        // if user is sender, send them remainining sender wei balance
-        } else if (user == sender) {
-            user.transfer(thread.weiBalances[0]);
-        }
-
-        // deduct token balances from channel total balances and reset thread balances
-        totalChannelToken = totalChannelToken.sub(thread.tokenBalances[0]).sub(thread.tokenBalances[1]);
-
-        // if user is receiver, send them receiver token balance
-        if (user == receiver) {
-            require(approvedToken.transfer(user, thread.tokenBalances[1]), "user [receiver] token withdrawal transfer failed");
-        // if user is sender, send them remainining sender token balance
-        } else if (user == sender) {
-            require(approvedToken.transfer(user, thread.tokenBalances[0]), "user [sender] token withdrawal transfer failed");
-        }
-
-        // zero out thread balances
-        thread.weiBalances = [0, 0];
-        thread.tokenBalances = [0, 0];
-
-        // decrement the channel threadCount
-        channel.threadCount = channel.threadCount.sub(1);
-
-        // if this is the last thread being emptied, re-open the channel
-        if (channel.threadCount == 0) {
-            channel.threadRoot = bytes32(0x0);
-            channel.status = ChannelStatus.Open;
-        }
-
-        emit DidEmptyThread(
-            user,
-            sender,
-            receiver,
-            threadId,
-            msg.sender,
-            [channel.weiBalances[0], channel.weiBalances[1]],
-            [channel.tokenBalances[0], channel.tokenBalances[1]],
-            channel.txCount,
-            channel.threadRoot,
-            channel.threadCount
-        );
-    }
-
+    // TODO: Since, in the _verifyThread call, we set the recipient balances to 0 explicity, should we change the function's input arguments for the initial balances from an array to simple uints?
     // either party starts exit with initial state
     function startExitThread(
         address user,
@@ -703,6 +622,8 @@ contract ChannelManager {
         );
     }
 
+    // TODO: Since, in the _verifyThread call, we set the recipient balances to 0 explicity, should we change the function's input arguments for the initial balances from an array to simple uints?
+    // TODO: This function is not really needed, since challenges can take place repeatedly. --> Should we keep this function and implement a fast exit logic for the receiver, or should we delete it, or should we just keep it as a convenience function?
     // either party starts exit with offchain state
     function startExitThreadWithUpdate(
         address user,
@@ -814,20 +735,41 @@ contract ChannelManager {
         );
     }
 
-    // after timer expires, anyone can empty with onchain state
+
+    // TODO: Since, in the _verifyThread call, we set the recipient balances to 0 explicity, should we change the function's input arguments for the initial balances from an array to simple uints?
     function emptyThread(
         address user,
         address sender,
         address receiver,
-        uint256 threadId
+        uint256 threadId,
+        uint256[2] weiBalances, // [sender, receiver] -> initial balances
+        uint256[2] tokenBalances, // [sender, receiver] -> initial balances
+        bytes proof,
+        string sig
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
+        require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
+        require(user == sender || user == receiver, "user must be thread sender or receiver");
 
         Thread storage thread = threads[sender][receiver][threadId];
+
+        // Thread mustn't be open
         require(thread.status == ThreadStatus.Exiting, "thread must be exiting");
-        // make sure that thread closing time has expired (thread is settled)
-        require(thread.threadClosingTime < now, "thread closing time must have passed");
+
+        // We check to make sure that the thread state has been finalized
+        require(thread.threadClosingTime < now, "Thread closing time must have passed");
+
+        // Make sure user has not emptied before
+        require(!thread.emptied[user == sender ? 0 : 1], "user cannot empty twice");
+
+        // verify initial thread state. Explicitly set txCount and recipient balances to 0
+        _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+
+        require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
+        require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
+
+        require(thread.weiBalances[1] >= weiBalances[1] && thread.tokenBalances[1] >= tokenBalances[1], "receiver balances may never decrease");
 
         // deduct sender/receiver wei/tokens about to be emptied from the thread from the total channel balances
         channel.weiBalances[2] = channel.weiBalances[2].sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
@@ -835,7 +777,7 @@ contract ChannelManager {
 
         // deduct wei balances from total channel wei and reset thread balances
         totalChannelWei = totalChannelWei.sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
-        // transfer wei to user if they are receiver (otherwise gets added to reserves implicitly)
+
         // if user is receiver, send them receiver wei balance
         if (user == receiver) {
             user.transfer(thread.weiBalances[1]);
@@ -846,6 +788,7 @@ contract ChannelManager {
 
         // deduct token balances from channel total balances and reset thread balances
         totalChannelToken = totalChannelToken.sub(thread.tokenBalances[0]).sub(thread.tokenBalances[1]);
+
         // if user is receiver, send them receiver token balance
         if (user == receiver) {
             require(approvedToken.transfer(user, thread.tokenBalances[1]), "user [receiver] token withdrawal transfer failed");
@@ -854,7 +797,8 @@ contract ChannelManager {
             require(approvedToken.transfer(user, thread.tokenBalances[0]), "user [sender] token withdrawal transfer failed");
         }
 
-        thread.status = ThreadStatus.Settled;
+        // Record that user has emptied
+        thread.emptied[user == sender ? 0 : 1] = true;
 
         // decrement the channel threadCount
         channel.threadCount = channel.threadCount.sub(1);
@@ -878,6 +822,7 @@ contract ChannelManager {
             channel.threadCount
         );
     }
+
 
     // anyone can call to re-open an account stuck in threadDispute after 10x challengePeriods
     function nukeThreads(
