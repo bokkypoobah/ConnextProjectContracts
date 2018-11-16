@@ -3,7 +3,7 @@ console.log(__dirname)
 const Utils = require("./helpers/utils");
 const Ledger = artifacts.require("./ChannelManager.sol");
 const EC = artifacts.require("./ECTools.sol");
-const Token = artifacts.require("./lib/StandardToken.sol");
+const Token = artifacts.require("./lib/HumanStandardToken.sol");
 const Connext = require("connext");
 const privKeys = require("./privKeys.json")
 
@@ -20,7 +20,7 @@ const emptyRootHash =
 function wait(ms) {
   const start = Date.now();
   console.log(`Waiting for ${ms}ms...`);
-  while (Date.now() < start + ms) {}
+  while (Date.now() < start + ms) { }
   return true;
 }
 
@@ -41,7 +41,7 @@ function generateProof(vcHashToProve, vcInitStates) {
 
 function getEventParams(tx, event) {
   if (tx.logs.length > 0) {
-    for (let idx=0; idx < tx.logs.length; idx++) {
+    for (let idx = 0; idx < tx.logs.length; idx++) {
       if (tx.logs[idx].event == event) {
         return tx.logs[idx].args
       }
@@ -53,13 +53,13 @@ function getEventParams(tx, event) {
 async function initHash(contract, init, accountIndex) {
   const hash = await web3.utils.soliditySha3(
     contract.address,
-    {type: 'address[2]', value: [init.user, init.recipient]},
-    {type: 'uint256[2]', value: init.weiBalances},
-    {type: 'uint256[2]', value: init.tokenBalances},
-    {type: 'uint256[4]', value: init.pendingWeiUpdates},
-    {type: 'uint256[4]', value: init.pendingTokenUpdates},
-    {type: 'uint256[2]', value: init.txCount},
-    {type: 'bytes32', value: init.threadRoot},
+    { type: 'address[2]', value: [init.user, init.recipient] },
+    { type: 'uint256[2]', value: init.weiBalances },
+    { type: 'uint256[2]', value: init.tokenBalances },
+    { type: 'uint256[4]', value: init.pendingWeiUpdates },
+    { type: 'uint256[4]', value: init.pendingTokenUpdates },
+    { type: 'uint256[2]', value: init.txCount },
+    { type: 'bytes32', value: init.threadRoot },
     init.threadCount,
     init.timeout
   )
@@ -81,7 +81,7 @@ contract("ChannelManager::constructor", accounts => {
   })
 
   describe('contract deployment', () => {
-    it("verify initialized parameters", async() => {
+    it("verify initialized parameters", async () => {
       assert.equal(hubAddress, accounts[0])
       assert.equal(challengePeriod.toNumber(), 10000)
       assert.equal(approvedToken, tokenAddress.address)
@@ -97,7 +97,7 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
   })
 
   describe('hubContractWithdraw', () => {
-    it("happy case", async() => {
+    it("happy case", async () => {
       await channelManager.hubContractWithdraw(
         0,
         0
@@ -118,20 +118,20 @@ contract("ChannelManager::hubAuthorizedUpdate", accounts => {
 
     beforeEach(async () => {
       init = {
-        "user" : accounts[1],
-        "recipient" : accounts[1],
-        "weiBalances" : [0, 0],
-        "tokenBalances" : [0, 0],
-        "pendingWeiUpdates" : [0, 0, 0, 0],
-        "pendingTokenUpdates" : [0, 0, 0, 0],
-        "txCount" : [1,1],
-        "threadRoot" : emptyRootHash,
-        "threadCount" : 0,
-        "timeout" : 0
+        "user": accounts[1],
+        "recipient": accounts[1],
+        "weiBalances": [0, 0],
+        "tokenBalances": [0, 0],
+        "pendingWeiUpdates": [0, 0, 0, 0],
+        "pendingTokenUpdates": [0, 0, 0, 0],
+        "txCount": [1, 1],
+        "threadRoot": emptyRootHash,
+        "threadCount": 0,
+        "timeout": 0
       }
     })
 
-    it("happy case", async() => {
+    it("happy case", async () => {
       init.sigUser = await initHash(channelManager, init, 1)
       await channelManager.hubAuthorizedUpdate(
         init.user,
@@ -162,20 +162,20 @@ contract("ChannelManager::userAuthorizedUpdate", accounts => {
     let hash, init
     beforeEach(async () => {
       init = {
-        "user" : accounts[1],
-        "recipient" : accounts[1],
-        "weiBalances" : [0, 0],
-        "tokenBalances" : [0, 0],
-        "pendingWeiUpdates" : [0, 0, 0, 0],
-        "pendingTokenUpdates" : [0, 0, 0, 0],
-        "txCount" : [1,1],
-        "threadRoot" : emptyRootHash,
-        "threadCount" : 0,
-        "timeout" : 0
+        "user": accounts[1],
+        "recipient": accounts[1],
+        "weiBalances": [0, 0],
+        "tokenBalances": [0, 0],
+        "pendingWeiUpdates": [0, 0, 0, 0],
+        "pendingTokenUpdates": [0, 0, 0, 0],
+        "txCount": [1, 1],
+        "threadRoot": emptyRootHash,
+        "threadCount": 0,
+        "timeout": 0
       }
     })
 
-    it("happy case", async() => {
+    it("happy case", async () => {
       init.sigHub = await initHash(channelManager, init, 0)
       await channelManager.userAuthorizedUpdate(
         init.recipient,
@@ -202,7 +202,7 @@ contract("ChannelManager::startExit", accounts => {
   })
 
   describe('startExit', () => {
-    it("happy case", async() => {
+    it("happy case", async () => {
       await channelManager.startExit(
         accounts[0]
       )
@@ -219,29 +219,29 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
 
   beforeEach(async () => {
     init = {
-      "user" : [accounts[1], accounts[2]],
-      "weiBalances" : [0, 0],
-      "tokenBalances" : [0, 0],
-      "pendingWeiUpdates" : [0, 0, 0, 0],
-      "pendingTokenUpdates" : [0, 0, 0, 0],
-      "txCount" : [1,1],
-      "threadRoot" : emptyRootHash,
-      "threadCount" : 0,
-      "timeout" : 0
+      "user": [accounts[1], accounts[2]],
+      "weiBalances": [0, 0],
+      "tokenBalances": [0, 0],
+      "pendingWeiUpdates": [0, 0, 0, 0],
+      "pendingTokenUpdates": [0, 0, 0, 0],
+      "txCount": [1, 1],
+      "threadRoot": emptyRootHash,
+      "threadCount": 0,
+      "timeout": 0
     }
   })
 
   describe('startExitWithUpdate', () => {
-    it("happy case", async() => {
+    it("happy case", async () => {
       const hash = await web3.utils.soliditySha3(
         channelManager.address,
-        {type: 'address[2]', value: init.user},
-        {type: 'uint256[2]', value: init.weiBalances},
-        {type: 'uint256[2]', value: init.tokenBalances},
-        {type: 'uint256[4]', value: init.pendingWeiUpdates},
-        {type: 'uint256[4]', value: init.pendingTokenUpdates},
-        {type: 'uint256[2]', value: init.txCount},
-        {type: 'bytes32', value: init.threadRoot},
+        { type: 'address[2]', value: init.user },
+        { type: 'uint256[2]', value: init.weiBalances },
+        { type: 'uint256[2]', value: init.tokenBalances },
+        { type: 'uint256[4]', value: init.pendingWeiUpdates },
+        { type: 'uint256[4]', value: init.pendingTokenUpdates },
+        { type: 'uint256[2]', value: init.txCount },
+        { type: 'bytes32', value: init.threadRoot },
         init.threadCount,
         init.timeout
       )
