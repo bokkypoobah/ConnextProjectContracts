@@ -123,8 +123,7 @@ contract ChannelManager {
         bytes32 threadRoot;
         uint256 threadCount;
         address exitInitiator;
-        uint256 channelClosingTime;
-        uint256 threadClosingTime;
+        uint256 channelClosingTime; //TODO possibly just rename to closingTime?
         ChannelStatus status;
     }
 
@@ -139,6 +138,7 @@ contract ChannelManager {
         uint256[2] tokenBalances; // [sender, receiver]
         uint256 txCount; // persisted onchain even when empty
         ThreadStatus status;
+        uint256 threadClosingTime; //TODO possibly just rename to closingTime?
     }
 
     mapping(address => Channel) public channels;
@@ -505,10 +505,8 @@ contract ChannelManager {
         channel.threadCount = threadCount;
 
         if (channel.threadCount > 0) {
-            channel.threadClosingTime = now.add(challengePeriod);
             channel.status = ChannelStatus.ThreadDispute;
         } else {
-            channel.threadClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
@@ -559,10 +557,8 @@ contract ChannelManager {
         channel.tokenBalances[1] = 0;
 
         if (channel.threadCount > 0) {
-            channel.threadClosingTime = now.add(challengePeriod);
             channel.status = ChannelStatus.ThreadDispute;
         } else {
-            channel.threadClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
@@ -596,7 +592,6 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
-        require(now < channel.threadClosingTime, "channel thread closing time must not have passed");
         require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
@@ -604,6 +599,8 @@ contract ChannelManager {
         Thread storage thread = threads[sender][receiver][threadId];
 
         require(thread.status == ThreadStatus.Settled, "thread must be settled");
+        // We check to make sure that the thread state has been finalized
+        require(thread.threadClosingTime < now, "Thread closing time must have passed");
 
         // verify initial thread state. Explicitly set txCount and recipient balances to 0
         _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
@@ -649,7 +646,6 @@ contract ChannelManager {
         // if this is the last thread being emptied, re-open the channel
         if (channel.threadCount == 0) {
             channel.threadRoot = bytes32(0x0);
-            channel.threadClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
@@ -680,7 +676,6 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
-        require(now < channel.threadClosingTime, "channel thread closing time must not have passed");
         require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
@@ -694,6 +689,7 @@ contract ChannelManager {
         thread.weiBalances = weiBalances;
         thread.tokenBalances = tokenBalances;
         thread.status = ThreadStatus.Exiting;
+        thread.threadClosingTime = now.add(challengePeriod);
 
         emit DidStartExitThread(
             user,
@@ -723,7 +719,6 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
-        require(now < channel.threadClosingTime, "channel thread closing time must not have passed");
         require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
         require(user == threadMembers[0] || user == threadMembers[1], "user must be thread sender or receiver");
 
@@ -754,6 +749,7 @@ contract ChannelManager {
         thread.tokenBalances = updatedTokenBalances;
         thread.txCount = updatedTxCount;
         thread.status = ThreadStatus.Exiting;
+        thread.threadClosingTime = now.add(challengePeriod);
 
         emit DidStartExitThread(
             user,
@@ -780,11 +776,12 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
-        require(now < channel.threadClosingTime, "channel thread closing time must not have passed");
         require(msg.sender == hub || msg.sender == sender || msg.sender == receiver, "only hub, sender, or receiver can call this function");
 
         Thread storage thread = threads[sender][receiver][threadId];
         require(thread.status == ThreadStatus.Exiting, "thread must be exiting");
+        //verify that thread settlement period has not yet expired
+        require(now < thread.threadClosingTime, "thread closing time must not have passed");
 
         // assumes that the non-sender has a later thread state than what was being proposed when the thread exit started
         require(txCount > thread.txCount, "thread txCount must be higher than the current thread txCount");
@@ -826,10 +823,11 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
-        require(channel.threadClosingTime < now, "thread closing time must have passed");
 
         Thread storage thread = threads[sender][receiver][threadId];
         require(thread.status == ThreadStatus.Exiting, "thread must be exiting");
+        // make sure that thread closing time has expired (thread is settled)
+        require(thread.threadClosingTime < now, "thread closing time must have passed");
 
         // deduct sender/receiver wei/tokens about to be emptied from the thread from the total channel balances
         channel.weiBalances[2] = channel.weiBalances[2].sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
@@ -864,7 +862,6 @@ contract ChannelManager {
         // if this is the last thread being emptied, re-open the channel
         if (channel.threadCount == 0) {
             channel.threadRoot = bytes32(0x0);
-            channel.threadClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
@@ -888,7 +885,8 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
-        require(channel.threadClosingTime.add(challengePeriod.mul(10)) < now, "thread closing time must have passed by 10 challenge periods");
+        //TODO figure out how to restrict the time for nukeThreads
+        // require(channel.threadClosingTime.add(challengePeriod.mul(10)) < now, "thread closing time must have passed by 10 challenge periods");
 
         // transfer any remaining channel wei to user
         totalChannelWei = totalChannelWei.sub(channel.weiBalances[2]);
@@ -905,7 +903,6 @@ contract ChannelManager {
         // reset channel params
         channel.threadCount = 0;
         channel.threadRoot = bytes32(0x0);
-        channel.threadClosingTime = 0;
         channel.status = ChannelStatus.Open;
 
         emit DidNukeThreads(
