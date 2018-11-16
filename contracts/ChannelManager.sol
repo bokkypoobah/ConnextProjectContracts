@@ -605,8 +605,8 @@ contract ChannelManager {
 
         require(thread.status == ThreadStatus.Settled, "thread must be settled");
 
-        // verify initial thread state
-        _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
+        // verify initial thread state. Explicitly set txCount and recipient balances to 0
+        _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
 
         require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
         require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
@@ -684,7 +684,8 @@ contract ChannelManager {
 
         require(thread.status == ThreadStatus.Open, "thread must be open");
 
-        _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
+        //explicitly set txCount and recipient balances to zero
+        _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
 
         thread.weiBalances = weiBalances;
         thread.tokenBalances = tokenBalances;
@@ -725,7 +726,8 @@ contract ChannelManager {
         Thread storage thread = threads[threadMembers[0]][threadMembers[1]][threadId];
         require(thread.status == ThreadStatus.Open, "thread must be open");
 
-        _verifyThread(threadMembers[0], threadMembers[1], threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
+        //explicitly set txCount and recipient balances to zero
+        _verifyThread(threadMembers[0], threadMembers[1], threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
 
         // *********************
         // PROCESS THREAD UPDATE
