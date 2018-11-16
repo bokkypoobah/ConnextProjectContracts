@@ -127,17 +127,10 @@ contract ChannelManager {
         ChannelStatus status;
     }
 
-    //TODO: Remove completely?
-    enum ThreadStatus {
-        Open,
-        Exiting
-    }
-
     struct Thread {
         uint256[2] weiBalances; // [sender, receiver]
         uint256[2] tokenBalances; // [sender, receiver]
         uint256 txCount; // persisted onchain even when empty
-        ThreadStatus status;
         uint256 threadClosingTime; //TODO possibly just rename to closingTime?
         bool[2] emptied; // [sender, receiver]
     }
@@ -600,14 +593,13 @@ contract ChannelManager {
 
         Thread storage thread = threads[sender][receiver][threadId];
 
-        require(thread.status == ThreadStatus.Open, "thread must be open");
+        require(thread.threadClosingTime == 0, "thread closing time must be zero");
 
         //explicitly set txCount and recipient balances to zero
         _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
 
         thread.weiBalances = weiBalances;
         thread.tokenBalances = tokenBalances;
-        thread.status = ThreadStatus.Exiting;
         thread.threadClosingTime = now.add(challengePeriod);
 
         emit DidStartExitThread(
@@ -644,7 +636,7 @@ contract ChannelManager {
         require(user == threadMembers[0] || user == threadMembers[1], "user must be thread sender or receiver");
 
         Thread storage thread = threads[threadMembers[0]][threadMembers[1]][threadId];
-        require(thread.status == ThreadStatus.Open, "thread must be open");
+        require(thread.threadClosingTime == 0, "thread closing time must be zero");
 
         //explicitly set txCount and recipient balances to zero
         _verifyThread(threadMembers[0], threadMembers[1], threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
@@ -669,7 +661,6 @@ contract ChannelManager {
         thread.weiBalances = updatedWeiBalances;
         thread.tokenBalances = updatedTokenBalances;
         thread.txCount = updatedTxCount;
-        thread.status = ThreadStatus.Exiting;
         thread.threadClosingTime = now.add(challengePeriod);
 
         emit DidStartExitThread(
@@ -700,7 +691,6 @@ contract ChannelManager {
         require(msg.sender == hub || msg.sender == sender || msg.sender == receiver, "only hub, sender, or receiver can call this function");
 
         Thread storage thread = threads[sender][receiver][threadId];
-        require(thread.status == ThreadStatus.Exiting, "thread must be exiting");
         //verify that thread settlement period has not yet expired
         require(now < thread.threadClosingTime, "thread closing time must not have passed");
 
@@ -753,9 +743,6 @@ contract ChannelManager {
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
         Thread storage thread = threads[sender][receiver][threadId];
-
-        // Thread mustn't be open
-        require(thread.status == ThreadStatus.Exiting, "thread must be exiting");
 
         // We check to make sure that the thread state has been finalized
         require(thread.threadClosingTime < now, "Thread closing time must have passed");
