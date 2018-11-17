@@ -293,11 +293,11 @@ Performers can withdraw from channels using the same mechanism regardless of whe
             pendingWeiUpdates: [0, 0, 0.5 eth, 0.5 eth]
             pendingTokenUpdates: [0, 100 booty, 0, 0]
             weiBalances: [0, 0]
-            tokenBalances: [100, 0]
-            txCount: [currentOffchainCount, onChainCount++]
+            tokenBalances: [0, 0]
+            txCount: [currentOffchainCount++, onChainCount++]
             //Note: timeout not needed for hub functions
 
-Note that the deposit and withdraw are both happening on the performer's side of the channel and that the weiBalances remain zero. This is because setting `weiBalances[1]` to `0.5` would violate the `"wei must be conserved"` requirement on the contract. By depositing and withdrawing from the same side, the channel's pending balance is first incremented by 0.5 ETH and then reduced by 0.5 ETH for the performer, allowing them to withdraw ETH directly from the Hub's in-contract balance if they have permission. Dope.
+Note that the deposit and withdraw are both happening on the performer's side of the channel and that the balances remain zero. This is because setting `weiBalances[1]` to `0.5` or `tokenBalances[0]` to `100` would violate the conservation requirement on the contract. By depositing and withdrawing from the same side, the channel's pending balance is first incremented by 0.5 ETH and then reduced by 0.5 ETH for the performer, allowing them to withdraw ETH directly from the Hub's in-contract balance if they have permission. Dope.
 
 For more info on calculating balances for deposit/withdraw states, see: [https://github.com/ConnextProject/contracts/blob/master/docs/aggregateUpdates.md](https://github.com/ConnextProject/contracts/blob/master/docs/aggregateUpdates.md)
 
@@ -744,8 +744,8 @@ function startExitWithUpdate(
 8. Deducts balances from the total onchain recorded balances for the channel.
 9. Transfers balances to both parties respectively.
 10. Updates `txCount` , `threadRoot` and `threadCount` state variables.
-11. If there are no threads open, zeroes out the thread closing time and reopens the channel so that it can be used again. We don't have to zero `threadRoot` here because it is assumed to be empty if there are no threads open.
-12. Otherwise, sets the thread dispute time and changes the channel's state to `ThreadDispute`.
+11. If there are no threads open, reopens the channel so that it can be used again. We don't have to zero `threadRoot` here because it is assumed to be empty if there are no threads open.
+12. Otherwise, changes the channel's state to `ThreadDispute`.
 13. Reinitializes the channel closing time and exit initiator variables since the channel dispute process has been completed.
 14. Emits the `DidEmptyChannelWithChallenge` event.
 ```
