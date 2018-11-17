@@ -75,7 +75,6 @@ contract ChannelManager {
     );
 
     event DidChallengeThread (
-        address user,
         address indexed sender,
         address indexed receiver,
         uint256 threadId,
@@ -123,7 +122,7 @@ contract ChannelManager {
         bytes32 threadRoot;
         uint256 threadCount;
         address exitInitiator;
-        uint256 channelClosingTime; //TODO possibly just rename to closingTime?
+        uint256 channelClosingTime;
         ChannelStatus status;
     }
 
@@ -131,7 +130,7 @@ contract ChannelManager {
         uint256[2] weiBalances; // [sender, receiver]
         uint256[2] tokenBalances; // [sender, receiver]
         uint256 txCount; // persisted onchain even when empty
-        uint256 threadClosingTime; //TODO possibly just rename to closingTime?
+        uint256 threadClosingTime; 
         bool[2] emptied; // [sender, receiver]
     }
 
@@ -677,7 +676,6 @@ contract ChannelManager {
 
     // either hub, sender, or receiver can update the thread state in place
     function challengeThread(
-        address user,
         address sender,
         address receiver,
         uint256 threadId,
@@ -686,8 +684,6 @@ contract ChannelManager {
         uint256 txCount,
         string sig
     ) public noReentrancy {
-        Channel storage channel = channels[user];
-        require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute phase");
         require(msg.sender == hub || msg.sender == sender || msg.sender == receiver, "only hub, sender, or receiver can call this function");
 
         Thread storage thread = threads[sender][receiver][threadId];
@@ -714,7 +710,6 @@ contract ChannelManager {
         thread.txCount = txCount;
 
         emit DidChallengeThread(
-            user,
             sender,
             receiver,
             threadId,
@@ -725,8 +720,7 @@ contract ChannelManager {
         );
     }
 
-
-    // TODO: Since, in the _verifyThread call, we set the recipient balances to 0 explicity, should we change the function's input arguments for the initial balances from an array to simple uints?
+    //After the thread state has been finalized onchain, emptyThread can be called to withdraw funds for each channel separately.
     function emptyThread(
         address user,
         address sender,
@@ -811,14 +805,13 @@ contract ChannelManager {
     }
 
 
-    // anyone can call to re-open an account stuck in threadDispute after 10x challengePeriods
+    // anyone can call to re-open an account stuck in threadDispute after 10x challengePeriods from channel state finalization
     function nukeThreads(
         address user
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
-        //TODO figure out how to restrict the time for nukeThreads
-        // require(channel.threadClosingTime.add(challengePeriod.mul(10)) < now, "thread closing time must have passed by 10 challenge periods");
+        require(channel.channelClosingTime.add(challengePeriod.mul(10)) < now, "channel closing time must have passed by 10 challenge periods");
 
         // transfer any remaining channel wei to user
         totalChannelWei = totalChannelWei.sub(channel.weiBalances[2]);
