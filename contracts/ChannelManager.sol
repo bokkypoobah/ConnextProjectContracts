@@ -573,7 +573,6 @@ contract ChannelManager {
     // THREAD DISPUTE METHODS
     // **********************
 
-    // TODO: Since, in the _verifyThread call, we set the recipient balances to 0 explicity, should we change the function's input arguments for the initial balances from an array to simple uints?
     // either party starts exit with initial state
     function startExitThread(
         address user,
@@ -613,8 +612,6 @@ contract ChannelManager {
         );
     }
 
-    // TODO: Since, in the _verifyThread call, we set the recipient balances to 0 explicity, should we change the function's input arguments for the initial balances from an array to simple uints?
-    // TODO: This function is not really needed, since challenges can take place repeatedly. --> Should we keep this function and implement a fast exit logic for the receiver, or should we delete it, or should we just keep it as a convenience function?
     // either party starts exit with offchain state
     function startExitThreadWithUpdate(
         address user,
