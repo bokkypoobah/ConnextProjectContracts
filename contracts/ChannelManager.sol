@@ -500,12 +500,11 @@ contract ChannelManager {
         if (channel.threadCount > 0) {
             channel.status = ChannelStatus.ThreadDispute;
         } else {
+            channel.channelClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
         channel.exitInitiator = address(0x0);
-        channel.channelClosingTime = 0;
-
 
         emit DidEmptyChannel(
             user[0],
@@ -552,11 +551,11 @@ contract ChannelManager {
         if (channel.threadCount > 0) {
             channel.status = ChannelStatus.ThreadDispute;
         } else {
+            channel.channelClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
         channel.exitInitiator = address(0x0);
-        channel.channelClosingTime = 0;
 
         emit DidEmptyChannel(
             user,
@@ -784,6 +783,7 @@ contract ChannelManager {
         // if this is the last thread being emptied, re-open the channel
         if (channel.threadCount == 0) {
             channel.threadRoot = bytes32(0x0);
+            channel.channelClosingTime = 0;
             channel.status = ChannelStatus.Open;
         }
 
@@ -825,6 +825,7 @@ contract ChannelManager {
         // reset channel params
         channel.threadCount = 0;
         channel.threadRoot = bytes32(0x0);
+        channel.channelClosingTime = 0;
         channel.status = ChannelStatus.Open;
 
         emit DidNukeThreads(
