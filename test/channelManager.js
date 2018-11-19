@@ -67,6 +67,7 @@ async function initHash(contract, init, accountIndex) {
   return sig.signature
 }
 
+// Funds contract with 5 eth and 1000 tokens
 async function fundContract(cm, hst) {
   const acct = await web3.eth.getAccounts()
   await web3.eth.sendTransaction({ to: cm.address, value: web3.utils.toWei('5'), from: acct[0] })
@@ -112,9 +113,33 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
   describe('hubContractWithdraw', () => {
     it("happy case", async () => {
       await channelManager.hubContractWithdraw(
-        1e18,
-        1e18
+        web3.utils.toWei('1'),
+        web3.utils.toWei('1')
       )
+    })
+
+    it("insufficient ETH case should fail", async () => {
+      try {
+        await channelManager.hubContractWithdraw(
+          web3.utils.toWei('5'),
+          web3.utils.toWei('1')
+        )
+        throw new Error('hubContractWithdraw succeeded with insufficient ETH')
+      } catch (err) {
+        assert.equal(err.reason, 'hubContractWithdraw: Contract wei funds not sufficient to withdraw')
+      }
+    })
+
+    it("insufficient token case should fail", async () => {
+      try {
+        await channelManager.hubContractWithdraw(
+          web3.utils.toWei('1'),
+          web3.utils.toWei('1000')
+        )
+        throw new Error('hubContractWithdraw succeeded with insufficient tokens')
+      } catch (err) {
+        assert.equal(err.reason, 'hubContractWithdraw: Contract token funds not sufficient to withdraw')
+      }
     })
   })
 });
