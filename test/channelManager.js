@@ -67,6 +67,16 @@ async function initHash(contract, init, accountIndex) {
   return sig.signature
 }
 
+async function fundContract(cm, hst) {
+  const acct = await web3.eth.getAccounts()
+  await web3.eth.sendTransaction({ to: cm.address, value: web3.utils.toWei('5'), from: acct[0] })
+  let balance = await web3.eth.getBalance(acct[0])
+  //console.log('contract ETH balance: ', balance);
+  await hst.transfer(cm.address, '1000000000000000000000')
+  // balance = await hst.balanceOf(acct[0])
+  //console.log('contract HST balance: ', balance);
+}
+
 // NOTE : ganache-cli -m 'refuse result toy bunker royal small story exhaust know piano base stand'
 
 contract("ChannelManager::constructor", accounts => {
@@ -91,16 +101,19 @@ contract("ChannelManager::constructor", accounts => {
 
 contract("ChannelManager::hubContractWithdraw", accounts => {
   let channelManager
+  let tokenAddress
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
+    tokenAddress = await Token.deployed()
+    await fundContract(channelManager, tokenAddress)
   })
 
   describe('hubContractWithdraw', () => {
     it("happy case", async () => {
       await channelManager.hubContractWithdraw(
-        0,
-        0
+        1e18,
+        1e18
       )
     })
   })
