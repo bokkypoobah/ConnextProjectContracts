@@ -326,6 +326,8 @@ contract ChannelManager {
     function startExit(
         address user
     ) public noReentrancy {
+        require(user != hub, "user can not be hub");
+
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.Open, "channel must be open");
 
@@ -521,6 +523,8 @@ contract ChannelManager {
     function emptyChannel(
         address user
     ) public noReentrancy {
+        require(user != hub, "user can not be hub");
+
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ChannelDispute, "channel must be in dispute");
 
@@ -806,6 +810,8 @@ contract ChannelManager {
     function nukeThreads(
         address user
     ) public noReentrancy {
+        require(user != hub, "user can not be hub");
+
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
         require(channel.channelClosingTime.add(challengePeriod.mul(10)) < now, "channel closing time must have passed by 10 challenge periods");
