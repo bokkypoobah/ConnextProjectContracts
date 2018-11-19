@@ -7,6 +7,10 @@ module.exports = async function(deployer, network, accounts) {
 
   let tokenAddress = "0x0"; // change to BOOTY address for mainnet
 
+  if (network === "rinkeby") {
+    tokenAddress = "0xb92139a108ae4d03112bafc76307360d575c0403"
+  }
+
   if (network !== "mainnet" && network !== "rinkeby") {
     const supply = web3.utils.toBN(web3.utils.toWei("696969", "ether"));
     await deployer.deploy(
