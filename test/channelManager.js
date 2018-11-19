@@ -71,11 +71,11 @@ async function initHash(contract, init, accountIndex) {
 async function fundContract(cm, hst) {
   const acct = await web3.eth.getAccounts()
   await web3.eth.sendTransaction({ to: cm.address, value: web3.utils.toWei('5'), from: acct[0] })
-  let balance = await web3.eth.getBalance(acct[0])
-  //console.log('contract ETH balance: ', balance);
+  // let balance = await web3.eth.getBalance(cm.address)
+  // console.log('contract ETH balance: ', balance);
   await hst.transfer(cm.address, '1000000000000000000000')
-  // balance = await hst.balanceOf(acct[0])
-  //console.log('contract HST balance: ', balance);
+  // balance = await hst.balanceOf(cm.address)
+  // console.log('contract HST balance: ', balance);
 }
 
 // NOTE : ganache-cli -m 'refuse result toy bunker royal small story exhaust know piano base stand'
@@ -118,7 +118,7 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
       )
     })
 
-    it("insufficient ETH case should fail", async () => {
+    it("fails with insufficient ETH", async () => {
       try {
         await channelManager.hubContractWithdraw(
           web3.utils.toWei('5'),
@@ -130,7 +130,7 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
       }
     })
 
-    it("insufficient token case should fail", async () => {
+    it("fails with insufficient tokens", async () => {
       try {
         await channelManager.hubContractWithdraw(
           web3.utils.toWei('1'),
@@ -146,9 +146,12 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
 
 contract("ChannelManager::hubAuthorizedUpdate", accounts => {
   let channelManager
+  let tokenAddress
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
+    tokenAddress = await Token.deployed()
+    await fundContract(channelManager, tokenAddress)
   })
 
   describe('hubAuthorizedUpdate', () => {
@@ -184,6 +187,31 @@ contract("ChannelManager::hubAuthorizedUpdate", accounts => {
         init.timeout,
         init.sigUser
       )
+    })
+
+    it("fails on non-open channel", async () => {
+      // set status to ChannelDispute
+      await channelManager.startExit(accounts[1])
+      // attempt update
+      init.sigUser = await initHash(channelManager, init, 1)
+      try {
+        await channelManager.hubAuthorizedUpdate(
+          init.user,
+          init.recipient,
+          init.weiBalances,
+          init.tokenBalances,
+          init.pendingWeiUpdates,
+          init.pendingTokenUpdates,
+          init.txCount,
+          init.threadRoot,
+          init.threadCount,
+          init.timeout,
+          init.sigUser
+        )
+        throw new Error('hubAuthorizedUpdate should fail if channel not open')
+      } catch (err) {
+        assert.equal(err.reason, 'channel must be open')
+      }
     })
   })
 });
