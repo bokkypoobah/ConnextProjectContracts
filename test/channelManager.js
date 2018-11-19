@@ -284,6 +284,34 @@ contract("ChannelManager::userAuthorizedUpdate", accounts => {
       )
     })
 
+    it("fails when deposit value not equal to message value", async () => {
+      // increment global txCount
+      init.txCount[0] = 2
+      // set invalid deposit amount
+      init.pendingWeiUpdates[2] = web3.utils.toWei('1')
+      // set sig
+      init.sigHub = await initHash(channelManager, init, 0)
+      // attempt update
+      try {
+        await channelManager.userAuthorizedUpdate(
+          init.recipient,
+          init.weiBalances,
+          init.tokenBalances,
+          init.pendingWeiUpdates,
+          init.pendingTokenUpdates,
+          init.txCount,
+          init.threadRoot,
+          init.threadCount,
+          init.timeout,
+          init.sigHub,
+          { from: accounts[1] }
+        )
+        throw new Error('userAuthorizedUpdate should fail if msg.value != pendingWeiUpdates')
+      } catch (err) {
+        assert.equal(err.reason, 'msg.value is not equal to pending user deposit')
+      }
+    })
+
     it("fails with invalid hub signature", async () => {
       // increment global txCount
       init.txCount[0] = 2
