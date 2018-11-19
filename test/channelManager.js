@@ -283,6 +283,32 @@ contract("ChannelManager::userAuthorizedUpdate", accounts => {
         { from: accounts[1] }
       )
     })
+
+    it("fails with invalid hub signature", async () => {
+      // increment global txCount
+      init.txCount[0] = 2
+      // set invalid signature
+      init.sigHub = '0x0'
+      // attempt update
+      try {
+        await channelManager.userAuthorizedUpdate(
+          init.recipient,
+          init.weiBalances,
+          init.tokenBalances,
+          init.pendingWeiUpdates,
+          init.pendingTokenUpdates,
+          init.txCount,
+          init.threadRoot,
+          init.threadCount,
+          init.timeout,
+          init.sigHub,
+          { from: accounts[1] }
+        )
+        throw new Error('userAuthorizedUpdate should fail if hub sig invalid')
+      } catch (err) {
+        assert.equal(err.reason, 'hub signature invalid')
+      }
+    })
   })
 });
 
