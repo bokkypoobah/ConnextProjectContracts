@@ -327,6 +327,7 @@ contract ChannelManager {
         address user
     ) public noReentrancy {
         require(user != hub, "user can not be hub");
+        require(user != address(this), "user can not be channel manager");
 
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.Open, "channel must be open");
@@ -524,6 +525,7 @@ contract ChannelManager {
         address user
     ) public noReentrancy {
         require(user != hub, "user can not be hub");
+        require(user != address(this), "user can not be channel manager");
 
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ChannelDispute, "channel must be in dispute");
@@ -811,6 +813,7 @@ contract ChannelManager {
         address user
     ) public noReentrancy {
         require(user != hub, "user can not be hub");
+        require(user != address(this), "user can not be channel manager");
 
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
@@ -1002,6 +1005,7 @@ contract ChannelManager {
         bool[2] checks // [checkHubSig?, checkUserSig?]
     ) internal view {
         require(user[0] != hub, "user can not be hub");
+        require(user[0] != address(this), "user can not be channel manager");
 
         // prepare state hash to check hub sig
         bytes32 state = keccak256(
@@ -1041,6 +1045,7 @@ contract ChannelManager {
     ) internal view {
         require(sender != receiver, "sender can not be receiver");
         require(sender != hub && receiver != hub, "hub can not be sender or receiver");
+        require(sender != address(this) && receiver != address(this), "channel manager can not be sender or receiver");
 
         bytes32 state = keccak256(
             abi.encodePacked(
