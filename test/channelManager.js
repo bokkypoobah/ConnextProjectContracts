@@ -432,13 +432,49 @@ contract("ChannelManager::startExit", accounts => {
 
 contract("ChannelManager::startExitWithUpdate", accounts => {
   let channelManager, init
+
+  async function doHappyCase(from = accounts[0]) {
+    const hash = await web3.utils.soliditySha3(
+      channelManager.address,
+      { type: 'address[2]', value: init.user },
+      { type: 'uint256[2]', value: init.weiBalances },
+      { type: 'uint256[2]', value: init.tokenBalances },
+      { type: 'uint256[4]', value: init.pendingWeiUpdates },
+      { type: 'uint256[4]', value: init.pendingTokenUpdates },
+      { type: 'uint256[2]', value: init.txCount },
+      { type: 'bytes32', value: init.threadRoot },
+      init.threadCount,
+      init.timeout
+    )
+    const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
+    const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
+
+    init.sigHub = signatureHub.signature
+    init.sigUser = signatureUser.signature
+
+    await channelManager.startExitWithUpdate(
+      init.user,
+      init.weiBalances,
+      init.tokenBalances,
+      init.pendingWeiUpdates,
+      init.pendingTokenUpdates,
+      init.txCount,
+      init.threadRoot,
+      init.threadCount,
+      init.timeout,
+      init.sigHub,
+      init.sigUser,
+      { from }
+    )
+  }
+
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
   })
 
   beforeEach(async () => {
     init = {
-      "user": [accounts[1], accounts[2]],
+      "user": [accounts[1], accounts[1]],
       "weiBalances": [0, 0],
       "tokenBalances": [0, 0],
       "pendingWeiUpdates": [0, 0, 0, 0],
@@ -453,38 +489,7 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
   describe('startExitWithUpdate', () => {
     it("fails when sender not hub or user", async () => {
       try {
-        const hash = await web3.utils.soliditySha3(
-          channelManager.address,
-          { type: 'address[2]', value: init.user },
-          { type: 'uint256[2]', value: init.weiBalances },
-          { type: 'uint256[2]', value: init.tokenBalances },
-          { type: 'uint256[4]', value: init.pendingWeiUpdates },
-          { type: 'uint256[4]', value: init.pendingTokenUpdates },
-          { type: 'uint256[2]', value: init.txCount },
-          { type: 'bytes32', value: init.threadRoot },
-          init.threadCount,
-          init.timeout
-        )
-        const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
-        const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
-
-        init.sigHub = signatureHub.signature
-        init.sigUser = signatureUser.signature
-
-        await channelManager.startExitWithUpdate(
-          init.user,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigHub,
-          init.sigUser,
-          { from: accounts[2] }
-        )
+        await doHappyCase(accounts[2])
         throw new Error('startExitWithUpdate should fail if sender not hub or user')
       } catch (err) {
         assert.equal(err.reason, 'exit initiator must be user or hub')
@@ -492,72 +497,12 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
     })
 
     it("happy case", async () => {
-      const hash = await web3.utils.soliditySha3(
-        channelManager.address,
-        { type: 'address[2]', value: init.user },
-        { type: 'uint256[2]', value: init.weiBalances },
-        { type: 'uint256[2]', value: init.tokenBalances },
-        { type: 'uint256[4]', value: init.pendingWeiUpdates },
-        { type: 'uint256[4]', value: init.pendingTokenUpdates },
-        { type: 'uint256[2]', value: init.txCount },
-        { type: 'bytes32', value: init.threadRoot },
-        init.threadCount,
-        init.timeout
-      )
-      const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
-      const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
-
-      init.sigHub = signatureHub.signature
-      init.sigUser = signatureUser.signature
-
-      await channelManager.startExitWithUpdate(
-        init.user,
-        init.weiBalances,
-        init.tokenBalances,
-        init.pendingWeiUpdates,
-        init.pendingTokenUpdates,
-        init.txCount,
-        init.threadRoot,
-        init.threadCount,
-        init.timeout,
-        init.sigHub,
-        init.sigUser
-      )
+      await doHappyCase()
     })
 
     it("fails when channel.status != Open", async () => {
       try {
-        const hash = await web3.utils.soliditySha3(
-          channelManager.address,
-          { type: 'address[2]', value: init.user },
-          { type: 'uint256[2]', value: init.weiBalances },
-          { type: 'uint256[2]', value: init.tokenBalances },
-          { type: 'uint256[4]', value: init.pendingWeiUpdates },
-          { type: 'uint256[4]', value: init.pendingTokenUpdates },
-          { type: 'uint256[2]', value: init.txCount },
-          { type: 'bytes32', value: init.threadRoot },
-          init.threadCount,
-          init.timeout
-        )
-        const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
-        const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
-
-        init.sigHub = signatureHub.signature
-        init.sigUser = signatureUser.signature
-
-        await channelManager.startExitWithUpdate(
-          init.user,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigHub,
-          init.sigUser
-        )
+        await doHappyCase()
         throw new Error('startExitWithUpdate should fail if channel not open')
       } catch (err) {
         assert.equal(err.reason, 'channel must be open')
