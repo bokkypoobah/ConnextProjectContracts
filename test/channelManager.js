@@ -67,13 +67,13 @@ async function initHash(contract, init, accountIndex) {
   return sig.signature
 }
 
-// Funds contract with 5 eth and 1000 tokens
-async function fundContract(cm, hst) {
+// Funds contract with eth and tokens
+async function fundContract(cm, hst, eth, tokens) {
   const acct = await web3.eth.getAccounts()
-  await web3.eth.sendTransaction({ to: cm.address, value: web3.utils.toWei('5'), from: acct[0] })
+  await web3.eth.sendTransaction({ to: cm.address, value: web3.utils.toWei(eth), from: acct[0] })
   // let balance = await web3.eth.getBalance(cm.address)
   // console.log('contract ETH balance: ', balance);
-  await hst.transfer(cm.address, '1000000000000000000000')
+  await hst.transfer(cm.address, web3.utils.toWei(tokens))
   // balance = await hst.balanceOf(cm.address)
   // console.log('contract HST balance: ', balance);
 }
@@ -107,7 +107,7 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
     tokenAddress = await Token.deployed()
-    await fundContract(channelManager, tokenAddress)
+    await fundContract(channelManager, tokenAddress, "5", "1000")
   })
 
   describe('hubContractWithdraw', () => {
@@ -151,7 +151,8 @@ contract("ChannelManager::hubAuthorizedUpdate", accounts => {
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
     tokenAddress = await Token.deployed()
-    await fundContract(channelManager, tokenAddress)
+    // TODO test non-zero channel balances
+    await fundContract(channelManager, tokenAddress, "15", "5000")
   })
 
   describe('hubAuthorizedUpdate', () => {
@@ -248,6 +249,9 @@ contract("ChannelManager::userAuthorizedUpdate", accounts => {
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
+    tokenAddress = await Token.deployed()
+    // TODO test non-zero channel balances
+    await fundContract(channelManager, tokenAddress, "15", "5000")
   })
 
   describe('userAuthorizedUpdate', () => {
@@ -470,6 +474,9 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
+    tokenAddress = await Token.deployed()
+    // TODO test non-zero channel balances
+    await fundContract(channelManager, tokenAddress, "15", "5000")
   })
 
   beforeEach(async () => {
@@ -560,6 +567,9 @@ contract("ChannelManager::emptyChannelWithChallenge", accounts => {
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
+    tokenAddress = await Token.deployed()
+    // TODO test non-zero channel balances
+    await fundContract(channelManager, tokenAddress, "15", "5000")
   })
 
   beforeEach(async () => {
