@@ -31,6 +31,7 @@
     "chai-bignumber": "^2.0.2",
     "connext": "^2.5.10",
     "ethjs-provider-http": "^0.1.6",
+    "ethjs-rpc": "^0.2.0",
     "ganache-cli": "6.1.8",
     "truffle": "5.0.0-beta.1",
     "typechain": "0.3.6"
