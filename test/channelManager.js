@@ -1,8 +1,9 @@
 "use strict";
 const should = require("chai")
 const Connext = require("connext")
-const HttpProvider = require(`ethjs-provider-http`)
-const EthRPC = require(`ethjs-rpc`)
+const HttpProvider = require("ethjs-provider-http")
+const EthRPC = require("ethjs-rpc")
+const config = require("./config.json")
 const Utils = require("./helpers/utils");
 const privKeys = require("./privKeys.json")
 const EC = artifacts.require("./ECTools.sol")
@@ -321,7 +322,7 @@ contract("ChannelManager", accounts => {
       challengePeriod = await channelManager.challengePeriod()
 
       assert.equal(hub.address, accounts[0])
-      assert.equal(challengePeriod.toNumber(), 10000)
+      assert.equal(challengePeriod.toNumber(), config.timeout)
       assert.equal(approvedToken, tokenAddress.address)
     })
   })
@@ -539,4 +540,58 @@ contract("ChannelManager", accounts => {
   //     await doEmptyChannelWithChallenge()
   //   })
   // })
+
+  describe('emptyChannel', () => {
+    it("happy case", async () => {
+      await channelManager.startExit(performer.address)
+      await moveForwardSecs(config.timeout + 1)
+      await channelManager.emptyChannel(performer.address)
+    })
+
+    // TODO
+    // Global Process:
+    // 1. For each function write down every state change
+    // 2. Test each successful state change
+    // 3. Test all logical branches (both sides of an if)
+    // 4. refactor to add helper functions for verification
+    //
+    // EXAMPLE: emptyChannel
+    // 1. channel.weiBalances[2]
+    // 2. channel.tokenBalances[2]
+    // 3. totalChannelWei
+    // 4. totalChannelToken
+    // 5. user ETH balance
+    // 6. contract ETH balance -> reserves
+    // 7. user token balance
+    // 8. contract token balance -> reserves
+    // 9. channel.weiBalances[0, 1] = 0
+    // 10. channel.tokenBalances[0, 1] = 0
+    // 11. channe.threadClosingTime
+    // 12. channel.status
+    // 13. channel.exitInitiator
+    // 14. channel.channelClosingTime
+    // 15. event
+    //
+    // 0. happy case - emptyChannel with zero threadCount (default)
+    // - check 1-15
+    // 1. emptyChannel after hubAuthorizedUpdate
+    // - check 1-15 (different balance)
+    // 2. emptyChannel after userAuthorizedUpdate
+    // - check 1-15 (different balance)
+    // 3. emptyChannel with non-zero threadCount
+    // - check 1-15 (thread dispute, thread closing time updated)
+    // 4. emptyChannel after startExitWithUpdate
+
+
+    it("fails when channel not in dispute", async () => {
+      await channelManager.emptyChannel(performer.address)
+        .should.be.rejectedWith('channel must be in dispute')
+    })
+
+    it("fails when channel closing time not passed", async () => {
+      await channelManager.startExit(performer.address)
+      await channelManager.emptyChannel(performer.address)
+        .should.be.rejectedWith('channel closing time must have passed')
+    })
+  })
 })
