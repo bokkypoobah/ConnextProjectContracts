@@ -366,6 +366,50 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(initChannel)
     })
 
+    // TODO write tests based on:
+    // https://github.com/ConnextProject/contracts/blob/master/docs/aggregateUpdates.md
+    // 1. user deposit
+    // 2. hub deposit
+    // 3. user withdrawal
+    // 4. hub withdrawal
+    // 5. user deposit + hub deposit
+    // 6. user deposit + hub withdrawal
+    // 7. user withdrawal + hub deposit
+    // 8. user w + hub w
+    // 9. actual exchange scenarios
+    //    - performer withdrawal booty -> eth
+    //      - also hub withdraws collateral
+    //    - user withdrawal booty -> eth
+    //      - also hub withdraws collateral
+    // 10. recipient is different than user
+    //
+    // State Transitions:
+    // 1. channelBalances (wei / token)
+    // 2. totalChannelWei
+    // 3. totalChannelToken
+    // 4. channel.weiBalances[2]
+    // 5. channel.tokenBalances[2]
+    // 6. recipient ether balance
+    // 7. recipient token balance
+    // 8. contract eth/token balance (reserve)
+    // 9. txCount
+    // 10. threadRoot
+    // 11. threadCount
+    // 12. event
+    //
+    // TODO
+    // test modifiers
+    // 1. onlyHub
+
+    it("fails user withdrawal with empty channel and pending wei updates", async () => {
+      initChannel.pendingWeiUpdates = [0, 0, 0, 1]
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await hubAuthorizedUpdate(initChannel)
+        .should
+        .be
+        .rejectedWith('Returned error: VM Exception while processing transaction: revert')
+    })
+
     it("fails with invalid user signature", async () => {
       // increment global txCount
       initChannel.txCount[0] = 2
