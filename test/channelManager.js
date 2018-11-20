@@ -1,43 +1,67 @@
 "use strict";
-console.log(__dirname)
-const Utils = require("./helpers/utils");
-const Ledger = artifacts.require("./ChannelManager.sol");
-const EC = artifacts.require("./ECTools.sol");
-const Token = artifacts.require("./lib/HumanStandardToken.sol");
-const Connext = require("connext");
-const privKeys = require("./privKeys.json")
-
-
 const should = require("chai")
+const Connext = require("connext")
+const HttpProvider = require(`ethjs-provider-http`)
+const EthRPC = require(`ethjs-rpc`)
+const Utils = require("./helpers/utils");
+const privKeys = require("./privKeys.json")
+const EC = artifacts.require("./ECTools.sol")
+const Ledger = artifacts.require("./ChannelManager.sol")
+const Token = artifacts.require("./lib/HumanStandardToken.sol")
+
+should
   .use(require("chai-as-promised"))
-  .should();
+  .should()
 
-const SolRevert = "VM Exception while processing transaction: revert";
-
+const ethRPC = new EthRPC(new HttpProvider('http://localhost:8545'))
+const SolRevert = "VM Exception while processing transaction: revert"
 const emptyRootHash =
-  "0x0000000000000000000000000000000000000000000000000000000000000000";
+  "0x0000000000000000000000000000000000000000000000000000000000000000"
 
-function wait(ms) {
-  const start = Date.now();
-  console.log(`Waiting for ${ms}ms...`);
-  while (Date.now() < start + ms) { }
-  return true;
-}
-
-function generateProof(vcHashToProve, vcInitStates) {
-  const merkle = Connext.generateMerkleTree(vcInitStates);
-  const mproof = merkle.proof(Utils.hexToBuffer(vcHashToProve));
-
-  let proof = [];
-  for (var i = 0; i < mproof.length; i++) {
-    proof.push(Utils.bufferToHex(mproof[i]));
+async function snapshot() {
+    return new Promise((accept, reject) => {
+        ethRPC.sendAsync({method: `evm_snapshot`}, (err, result)=> {
+        if (err) {
+            reject(err)
+        } else {
+            accept(result)
+        }
+        })
+    })
   }
 
-  proof.unshift(vcHashToProve);
+async function restore(snapshotId) {
+    return new Promise((accept, reject) => {
+      ethRPC.sendAsync({method: `evm_revert`, params: [snapshotId]}, (err, result) => {
+        if (err) {
+          reject(err)
+        } else {
+          accept(result)
+        }
+      })
+    })
+  }
 
-  proof = Utils.marshallState(proof);
-  return proof;
+async function moveForwardSecs(secs) {
+  await ethRPC.sendAsync({
+    jsonrpc:'2.0', method: `evm_increaseTime`,
+    params: [secs],
+    id: 0
+  }, (err)=> {`error increasing time`});
+  const start = Date.now();
+  while (Date.now() < start + 300) {}
+  await ethRPC.sendAsync({method: `evm_mine`}, (err)=> {});
+  while (Date.now() < start + 300) {}
+  return true
 }
+
+// async function generateThreadProof(threadHashToProve, threadInitStates) {
+//   return await Connext.Utils.generateThreadProof(threadHashToProve, threadInitStates)
+// }
+
+// async function generateThreadRootHash(threadInitStates){
+//   return await Connext.Utils.generateThreadRootHash([threadInitStates])
+// }
 
 function getEventParams(tx, event) {
   if (tx.logs.length > 0) {
@@ -50,64 +74,256 @@ function getEventParams(tx, event) {
   return false
 }
 
-async function initHash(contract, init, accountIndex) {
+async function updateHash(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
-    contract.address,
-    { type: 'address[2]', value: [init.user, init.recipient] },
-    { type: 'uint256[2]', value: init.weiBalances },
-    { type: 'uint256[2]', value: init.tokenBalances },
-    { type: 'uint256[4]', value: init.pendingWeiUpdates },
-    { type: 'uint256[4]', value: init.pendingTokenUpdates },
-    { type: 'uint256[2]', value: init.txCount },
-    { type: 'bytes32', value: init.threadRoot },
-    init.threadCount,
-    init.timeout
+    channelManager.address,
+    {type: 'address[2]', value: [data.user, data.recipient]},
+    {type: 'uint256[2]', value: data.weiBalances},
+    {type: 'uint256[2]', value: data.tokenBalances},
+    {type: 'uint256[4]', value: data.pendingWeiUpdates},
+    {type: 'uint256[4]', value: data.pendingTokenUpdates},
+    {type: 'uint256[2]', value: data.txCount},
+    {type: 'bytes32', value: data.threadRoot},
+    data.threadCount,
+    data.timeout
   )
-  const sig = await web3.eth.accounts.sign(hash, privKeys[accountIndex])
+  const sig = await web3.eth.accounts.sign(hash, privateKey)
   return sig.signature
 }
 
+async function updateThreadHash(data, privateKey) {
+  const hash = await web3.utils.soliditySha3(
+    channelManager.address,
+    {type: 'address', value: data.user},
+    {type: 'address', value: data.sender},
+    {type: 'address', value: data.receiver},
+    {type: 'uint256[2]', value: data.weiBalances},
+    {type: 'uint256[2]', value: data.tokenBalances},
+    {type: 'uint256', value: data.txCount}
+  )
+  const sig = await web3.eth.accounts.sign(hash, privateKey)
+  return sig.signature
+}
+
+async function hubAuthorizedUpdate(data) {
+  await channelManager.hubAuthorizedUpdate(
+    data.user,
+    data.recipient,
+    data.weiBalances,
+    data.tokenBalances,
+    data.pendingWeiUpdates,
+    data.pendingTokenUpdates,
+    data.txCount,
+    data.threadRoot,
+    data.threadCount,
+    data.timeout,
+    data.sigUser,
+    {from: hub.address}
+  )
+}
+
+async function userAuthorizedUpdate(data, user, wei=0) {
+    await channelManager.userAuthorizedUpdate(
+      data.recipient,
+      data.weiBalances,
+      data.tokenBalances,
+      data.pendingWeiUpdates,
+      data.pendingTokenUpdates,
+      data.txCount,
+      data.threadRoot,
+      data.threadCount,
+      data.timeout,
+      data.sigHub,
+      {from: user.address, value:wei}
+    )
+  }
+
+async function emptyChannelWithChallenge(data, user) {
+  await channelManager.emptyChannelWithChallenge(
+    [data.user, data.recipient],
+    data.weiBalances,
+    data.tokenBalances,
+    data.pendingWeiUpdates,
+    data.pendingTokenUpdates,
+    data.txCount,
+    data.threadRoot,
+    data.threadCount,
+    data.timeout,
+    data.sigHub,
+    data.sigUser,
+    {from: user}
+  )
+}
+
+async function startExitWithUpdate(data, user) {
+  await channelManager.startExitWithUpdate(
+    [data.user, data.recipient],
+    data.weiBalances,
+    data.tokenBalances,
+    data.pendingWeiUpdates,
+    data.pendingTokenUpdates,
+    data.txCount,
+    data.threadRoot,
+    data.threadCount,
+    data.timeout,
+    data.sigHub,
+    data.sigUser,
+    {from:user}
+  )
+}
+
+async function startExitThread(data, user) {
+  await channelManager.startExitThread(
+    data.user,
+    data.sender,
+    data.receiver,
+    data.weiBalances,
+    data.tokenBalances,
+    data.txCount,
+    data.proof,
+    data.sig,
+    {from: user}
+  )
+}
+
+async function startExitThreadWithUpdate(data, user) {
+    await channelManager.startExitThreadWithUpdate(
+        data.user,
+        [data.sender, data.receiver],
+        data.weiBalances,
+        data.tokenBalances,
+        data.txCount,
+        data.proof,
+        data.sig,
+        data.updatedWeiBalances,
+        data.updatedTokenBalances,
+        data.updatedTxCount,
+        data.updateSig,
+        {from: user}
+    )
+}
+// TODO
+// async function challengeThread(data, user) {
+//     await channelManager.challengeThread(
+//         data.user,
+//         data.sender,
+//         data.receiver,
+//         data.weiBalances,
+//         data.tokenBalances,
+//         data.txCount,
+//         data.sig,
+//         {from:user}
+//     )
+// }
+
+// async function emptyThread(data) {
+//     await channelManager.emptyThread(
+//         data.user,
+//         data.sender,
+//         data.receiver
+//     )
+// }
+
+// async function nukeThreads(user) {
+// }
+
 // Funds contract with eth and tokens
-async function fundContract(cm, hst, eth, tokens) {
-  const acct = await web3.eth.getAccounts()
-  await web3.eth.sendTransaction({ to: cm.address, value: web3.utils.toWei(eth), from: acct[0] })
+async function fundContract(eth, tokens) {
+  await web3.eth.sendTransaction({
+    to: channelManager.address,
+    value: web3.utils.toWei(eth),
+    from: hub.address
+  })
   // let balance = await web3.eth.getBalance(cm.address)
   // console.log('contract ETH balance: ', balance);
-  await hst.transfer(cm.address, web3.utils.toWei(tokens))
+  await tokenAddress.transfer(channelManager.address, web3.utils.toWei(tokens))
   // balance = await hst.balanceOf(cm.address)
   // console.log('contract HST balance: ', balance);
 }
 
 // NOTE : ganache-cli -m 'refuse result toy bunker royal small story exhaust know piano base stand'
+// NOTE : hub : accounts[0], privKeys[0]
+let channelManager, tokenAddress, challengePeriod
+let hub, performer, viewer, initChannel, initThread
 
-contract("ChannelManager::constructor", accounts => {
-  let channelManager, tokenAddress, hubAddress, challengePeriod, approvedToken
+contract("ChannelManager", accounts => {
+  let snapshotId
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
     tokenAddress = await Token.deployed()
-    hubAddress = await channelManager.hub()
-    challengePeriod = await channelManager.challengePeriod()
-    approvedToken = await channelManager.approvedToken()
+
+    hub = {
+      address: accounts[0],
+      privateKey: privKeys[0]
+    }
+    performer = {
+      address: accounts[1],
+      privateKey: privKeys[1]
+    }
+    viewer = {
+      address: accounts[2],
+      privateKey: privKeys[2]
+    }
+
+    await fundContract("5", "1000")
+  })
+
+  beforeEach(async () => {
+    snapshotId = await snapshot()
+    initChannel = {
+      "user": performer.address,
+      "recipient": performer.address,
+      "weiBalances": [0, 0],
+      "tokenBalances": [0, 0],
+      "pendingWeiUpdates": [0, 0, 0, 0],
+      "pendingTokenUpdates": [0, 0, 0, 0],
+      "txCount": [1, 1],
+      "threadRoot": emptyRootHash,
+      "threadCount": 0,
+      "timeout": 0
+    }
+    // initThread = {
+    //   "hub": hub.address,
+    //   "user": viewer.address,
+    //   "sender": viewer.address,
+    //   "receiver": performer.address,
+    //   "recipient": performer.address,
+    //   "weiBalances": [0, 0],
+    //   "tokenBalances": [0, 0],
+    //   "pendingWeiUpdates": [0, 0, 0, 0],
+    //   "pendingTokenUpdates": [0, 0, 0, 0],
+    //   "txCount": [1, 1],
+    //   "threadRoot": emptyRootHash,
+    //   "threadCount": 0,
+    //   "timeout": 0,
+    //   "proof": await generateThreadRootHash({
+    //     "contractAddress": channelManager.address,
+    //     "user": viewer.address,
+    //     "sender": hub.address,
+    //     "receiver": performer.address,
+    //     "balanceWeiSender": 0,
+    //     "balanceWeiReceiver": 0,
+    //     "balanceTokenSender": 0,
+    //     "balanceTokenReceiver": 0,
+    //     "txCount": 2
+    //   })
+    // }
+  })
+
+  afterEach(async () => {
+    await restore(snapshotId)
   })
 
   describe('contract deployment', () => {
     it("verify initialized parameters", async () => {
-      assert.equal(hubAddress, accounts[0])
+      const approvedToken = await channelManager.approvedToken()
+      challengePeriod = await channelManager.challengePeriod()
+
+      assert.equal(hub.address, accounts[0])
       assert.equal(challengePeriod.toNumber(), 10000)
       assert.equal(approvedToken, tokenAddress.address)
     })
-  })
-})
-
-contract("ChannelManager::hubContractWithdraw", accounts => {
-  let channelManager
-  let tokenAddress
-
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-    tokenAddress = await Token.deployed()
-    await fundContract(channelManager, tokenAddress, "5", "1000")
   })
 
   describe('hubContractWithdraw', () => {
@@ -119,576 +335,203 @@ contract("ChannelManager::hubContractWithdraw", accounts => {
     })
 
     it("fails with insufficient ETH", async () => {
-      try {
-        await channelManager.hubContractWithdraw(
-          web3.utils.toWei('5'),
-          web3.utils.toWei('1')
+      await channelManager.hubContractWithdraw(
+        web3.utils.toWei('6'),
+        web3.utils.toWei('1')
+      )
+        .should
+        .be
+        .rejectedWith(
+          'hubContractWithdraw: Contract wei funds not sufficient to withdraw'
         )
-        throw new Error('hubContractWithdraw succeeded with insufficient ETH')
-      } catch (err) {
-        assert.equal(err.reason, 'hubContractWithdraw: Contract wei funds not sufficient to withdraw')
-      }
     })
 
     it("fails with insufficient tokens", async () => {
-      try {
-        await channelManager.hubContractWithdraw(
-          web3.utils.toWei('1'),
-          web3.utils.toWei('1000')
+      await channelManager.hubContractWithdraw(
+        web3.utils.toWei('1'),
+        web3.utils.toWei('1001')
+      )
+        .should
+        .be
+        .rejectedWith(
+          'hubContractWithdraw: Contract token funds not sufficient to withdraw'
         )
-        throw new Error('hubContractWithdraw succeeded with insufficient tokens')
-      } catch (err) {
-        assert.equal(err.reason, 'hubContractWithdraw: Contract token funds not sufficient to withdraw')
-      }
     })
-  })
-});
-
-contract("ChannelManager::hubAuthorizedUpdate", accounts => {
-  let channelManager
-  let tokenAddress
-
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-    tokenAddress = await Token.deployed()
-    // TODO test non-zero channel balances
-    await fundContract(channelManager, tokenAddress, "15", "5000")
   })
 
   describe('hubAuthorizedUpdate', () => {
-    let init
-
-    beforeEach(async () => {
-      init = {
-        "user": accounts[1],
-        "recipient": accounts[1],
-        "weiBalances": [0, 0],
-        "tokenBalances": [0, 0],
-        "pendingWeiUpdates": [0, 0, 0, 0],
-        "pendingTokenUpdates": [0, 0, 0, 0],
-        "txCount": [1, 1],
-        "threadRoot": emptyRootHash,
-        "threadCount": 0,
-        "timeout": 0
-      }
-    })
-
     it("happy case", async () => {
-      init.sigUser = await initHash(channelManager, init, 1)
-      await channelManager.hubAuthorizedUpdate(
-        init.user,
-        init.recipient,
-        init.weiBalances,
-        init.tokenBalances,
-        init.pendingWeiUpdates,
-        init.pendingTokenUpdates,
-        init.txCount,
-        init.threadRoot,
-        init.threadCount,
-        init.timeout,
-        init.sigUser
-      )
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await hubAuthorizedUpdate(initChannel)
     })
 
     it("fails with invalid user signature", async () => {
       // increment global txCount
-      init.txCount[0] = 2
+      initChannel.txCount[0] = 2
       // set invalid signature
-      init.sigUser = '0x0'
+      initChannel.sigUser = '0x0'
       // attempt update
-      try {
-        await channelManager.hubAuthorizedUpdate(
-          init.user,
-          init.recipient,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigUser
-        )
-        throw new Error('hubAuthorizedUpdate should fail if user sig invalid')
-      } catch (err) {
-        assert.equal(err.reason, 'user signature invalid')
-      }
+      await hubAuthorizedUpdate(initChannel)
+        .should.be.rejectedWith('user signature invalid')
     })
 
     it("fails on non-open channel", async () => {
       // set status to ChannelDispute
       await channelManager.startExit(accounts[1])
       // attempt update
-      init.sigUser = await initHash(channelManager, init, 1)
-      try {
-        await channelManager.hubAuthorizedUpdate(
-          init.user,
-          init.recipient,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigUser
-        )
-        throw new Error('hubAuthorizedUpdate should fail if channel not open')
-      } catch (err) {
-        assert.equal(err.reason, 'channel must be open')
-      }
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await hubAuthorizedUpdate(initChannel)
+        .should.be.rejectedWith('channel must be open')
     })
-  })
-});
-
-
-contract("ChannelManager::userAuthorizedUpdate", accounts => {
-  let channelManager, tokenAddress
-
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-    tokenAddress = await Token.deployed()
-    // TODO test non-zero channel balances
-    await fundContract(channelManager, tokenAddress, "15", "5000")
   })
 
   describe('userAuthorizedUpdate', () => {
-    let hash, init
-    beforeEach(async () => {
-      init = {
-        "user": accounts[1],
-        "recipient": accounts[1],
-        "weiBalances": [0, 0],
-        "tokenBalances": [0, 0],
-        "pendingWeiUpdates": [0, 0, 0, 0],
-        "pendingTokenUpdates": [0, 0, 0, 0],
-        "txCount": [1, 1],
-        "threadRoot": emptyRootHash,
-        "threadCount": 0,
-        "timeout": 0
-      }
-    })
-
     it("happy case", async () => {
-      init.sigHub = await initHash(channelManager, init, 0)
-      await channelManager.userAuthorizedUpdate(
-        init.recipient,
-        init.weiBalances,
-        init.tokenBalances,
-        init.pendingWeiUpdates,
-        init.pendingTokenUpdates,
-        init.txCount,
-        init.threadRoot,
-        init.threadCount,
-        init.timeout,
-        init.sigHub,
-        { from: accounts[1] }
-      )
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      await userAuthorizedUpdate(initChannel, performer)
     })
 
     it("fails when wei deposit value not equal to message value", async () => {
       // increment global txCount
-      init.txCount[0] = 2
+      initChannel.txCount[0] = 2
       // set invalid deposit amount in wei
-      init.pendingWeiUpdates[2] = web3.utils.toWei('1')
+      initChannel.pendingWeiUpdates[2] = web3.utils.toWei('1')
       // set sig
-      init.sigHub = await initHash(channelManager, init, 0)
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
       // attempt update
-      try {
-        await channelManager.userAuthorizedUpdate(
-          init.recipient,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigHub,
-          { from: accounts[1] }
-        )
-        throw new Error('userAuthorizedUpdate should fail if msg.value != pendingWeiUpdates')
-      } catch (err) {
-        assert.equal(err.reason, 'msg.value is not equal to pending user deposit')
-      }
+      await userAuthorizedUpdate(initChannel, performer)
+        .should.be.rejectedWith('msg.value is not equal to pending user deposit')
     })
 
     it("fails token deposit for user without tokens", async () => {
       // increment global txCount
-      init.txCount[0] = 2
+      initChannel.txCount[0] = 2
       // set invalid deposit amount in tokens
-      init.pendingTokenUpdates[2] = web3.utils.toWei('1')
+      initChannel.pendingTokenUpdates[2] = web3.utils.toWei('1')
       // set sig
-      init.sigHub = await initHash(channelManager, init, 0)
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
       // attempt update
-      try {
-        await channelManager.userAuthorizedUpdate(
-          init.recipient,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigHub,
-          { from: accounts[1] }
+      await userAuthorizedUpdate(initChannel, performer)
+        .should
+        .be
+        .rejectedWith(
+          'Returned error: VM Exception while processing transaction: revert'
         )
-        throw new Error('userAuthorizedUpdate should fail if user token transfer fails')
-      } catch (err) {
-        assert.equal(err, 'Error: Returned error: VM Exception while processing transaction: revert')
-      }
     })
 
     it("fails with invalid hub signature", async () => {
       // increment global txCount
-      init.txCount[0] = 2
+      initChannel.txCount[0] = 2
       // set invalid signature
-      init.sigHub = '0x0'
+      initChannel.sigHub = '0x0'
       // attempt update
-      try {
-        await channelManager.userAuthorizedUpdate(
-          init.recipient,
-          init.weiBalances,
-          init.tokenBalances,
-          init.pendingWeiUpdates,
-          init.pendingTokenUpdates,
-          init.txCount,
-          init.threadRoot,
-          init.threadCount,
-          init.timeout,
-          init.sigHub,
-          { from: accounts[1] }
-        )
-        throw new Error('userAuthorizedUpdate should fail if hub sig invalid')
-      } catch (err) {
-        assert.equal(err.reason, 'hub signature invalid')
-      }
+      await userAuthorizedUpdate(initChannel, performer)
+        .should.be.rejectedWith('hub signature invalid')
     })
-  })
-});
-
-
-contract("ChannelManager::startExit", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
   })
 
   describe('startExit', () => {
     it("fails when user == hub", async () => {
-      try {
-        await channelManager.startExit(
-          accounts[0]
-        )
-        throw new Error('startExit should fail if user == hub')
-      } catch (err) {
-        assert.equal(err.reason, 'user can not be hub')
-      }
+      await channelManager.startExit(hub.address)
+        .should.be.rejectedWith('user can not be hub')
     })
 
     it("fails when user == contract", async () => {
-      try {
-        await channelManager.startExit(
-          channelManager.address
-        )
-        throw new Error('startExit should fail if user == channel manager')
-      } catch (err) {
-        assert.equal(err.reason, 'user can not be channel manager')
-      }
+      await channelManager.startExit(channelManager.address)
+        .should.be.rejectedWith('user can not be channel manager')
     })
 
     it("fails when sender not hub or user", async () => {
-      try {
-        await channelManager.startExit(
-          accounts[1],
-          { from: accounts[2] }
-        )
-        throw new Error('startExit should fail if sender not hub or user')
-      } catch (err) {
-        assert.equal(err.reason, 'exit initiator must be user or hub')
-      }
-    })
-
-    it("happy case", async () => {
       await channelManager.startExit(
-        accounts[1]
+        performer.address,
+        { from: viewer.address }
       )
-    })
-
-    it("fails when channel.status != Open", async () => {
-      try {
-        await channelManager.startExit(
-          accounts[1]
-        )
-        throw new Error('startExit should fail if channel not open')
-      } catch (err) {
-        assert.equal(err.reason, 'channel must be open')
-      }
-    })
-  })
-});
-
-
-contract("ChannelManager::startExitWithUpdate", accounts => {
-  let channelManager, tokenAddress, init
-
-  async function doStartExitWithUpdate(from = accounts[0], timeout = 0) {
-    const hash = await web3.utils.soliditySha3(
-      channelManager.address,
-      { type: 'address[2]', value: init.user },
-      { type: 'uint256[2]', value: init.weiBalances },
-      { type: 'uint256[2]', value: init.tokenBalances },
-      { type: 'uint256[4]', value: init.pendingWeiUpdates },
-      { type: 'uint256[4]', value: init.pendingTokenUpdates },
-      { type: 'uint256[2]', value: init.txCount },
-      { type: 'bytes32', value: init.threadRoot },
-      init.threadCount,
-      init.timeout
-    )
-    const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
-    const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
-
-    init.sigHub = signatureHub.signature
-    init.sigUser = signatureUser.signature
-
-    await channelManager.startExitWithUpdate(
-      init.user,
-      init.weiBalances,
-      init.tokenBalances,
-      init.pendingWeiUpdates,
-      init.pendingTokenUpdates,
-      init.txCount,
-      init.threadRoot,
-      init.threadCount,
-      timeout,
-      init.sigHub,
-      init.sigUser,
-      { from }
-    )
-  }
-
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-    tokenAddress = await Token.deployed()
-    // TODO test non-zero channel balances
-    await fundContract(channelManager, tokenAddress, "15", "5000")
-  })
-
-  beforeEach(async () => {
-    init = {
-      "user": [accounts[1], accounts[1]],
-      "weiBalances": [0, 0],
-      "tokenBalances": [0, 0],
-      "pendingWeiUpdates": [0, 0, 0, 0],
-      "pendingTokenUpdates": [0, 0, 0, 0],
-      "txCount": [1, 1],
-      "threadRoot": emptyRootHash,
-      "threadCount": 0,
-      "timeout": 0
-    }
-  })
-
-  describe('startExitWithUpdate', () => {
-    it("fails when sender not hub or user", async () => {
-      try {
-        await doStartExitWithUpdate(accounts[2])
-        throw new Error('startExitWithUpdate should fail if sender not hub or user')
-      } catch (err) {
-        assert.equal(err.reason, 'exit initiator must be user or hub')
-      }
-    })
-
-    it("fails when timeout != 0", async () => {
-      try {
-        await doStartExitWithUpdate(accounts[0], 10000)
-        throw new Error('startExitWithUpdate should fail if timeout not 0')
-      } catch (err) {
-        assert.equal(err.reason, "can't start exit with time-sensitive states")
-      }
+        .should.be.rejectedWith('exit initiator must be user or hub')
     })
 
     it("happy case", async () => {
-      await doStartExitWithUpdate()
+      await channelManager.startExit(performer.address)
     })
 
     it("fails when channel.status != Open", async () => {
-      try {
-        await doStartExitWithUpdate()
-        throw new Error('startExitWithUpdate should fail if channel not open')
-      } catch (err) {
-        assert.equal(err.reason, 'channel must be open')
-      }
+      await channelManager.startExit(performer.address)
+      await channelManager.startExit(performer.address)
+        .should.be.rejectedWith('channel must be open')
     })
   })
-});
 
-contract("ChannelManager::emptyChannelWithChallenge", accounts => {
-  let channelManager, tokenAddress, init
+  // describe('startExitWithUpdate', () => {
+  //   it("fails when sender not hub or user", async () => {
+  //     try {
+  //       await doStartExitWithUpdate(accounts[2])
+  //       throw new Error('startExitWithUpdate should fail if sender not hub or user')
+  //     } catch (err) {
+  //       assert.equal(err.reason, 'exit initiator must be user or hub')
+  //     }
+  //   })
 
-  async function doEmptyChannelWithChallenge(from = accounts[1], timeout = 0) {
-    const hash = await web3.utils.soliditySha3(
-      channelManager.address,
-      { type: 'address[2]', value: init.user },
-      { type: 'uint256[2]', value: init.weiBalances },
-      { type: 'uint256[2]', value: init.tokenBalances },
-      { type: 'uint256[4]', value: init.pendingWeiUpdates },
-      { type: 'uint256[4]', value: init.pendingTokenUpdates },
-      { type: 'uint256[2]', value: init.txCount },
-      { type: 'bytes32', value: init.threadRoot },
-      init.threadCount,
-      init.timeout
-    )
-    const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
-    const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
+  //   it("fails when timeout != 0", async () => {
+  //     try {
+  //       await doStartExitWithUpdate(accounts[0], 10000)
+  //       throw new Error('startExitWithUpdate should fail if timeout not 0')
+  //     } catch (err) {
+  //       assert.equal(err.reason, "can't start exit with time-sensitive states")
+  //     }
+  //   })
 
-    init.sigHub = signatureHub.signature
-    init.sigUser = signatureUser.signature
+  //   it("happy case", async () => {
+  //     await doStartExitWithUpdate()
+  //   })
 
-    await channelManager.emptyChannelWithChallenge(
-      init.user,
-      init.weiBalances,
-      init.tokenBalances,
-      init.pendingWeiUpdates,
-      init.pendingTokenUpdates,
-      init.txCount,
-      init.threadRoot,
-      init.threadCount,
-      timeout,
-      init.sigHub,
-      init.sigUser,
-      { from }
-    )
-  }
+  //   it("fails when channel.status != Open", async () => {
+  //     try {
+  //       await doStartExitWithUpdate()
+  //       throw new Error('startExitWithUpdate should fail if channel not open')
+  //     } catch (err) {
+  //       assert.equal(err.reason, 'channel must be open')
+  //     }
+  //   })
+  // })
 
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-    tokenAddress = await Token.deployed()
-    // TODO test non-zero channel balances
-    await fundContract(channelManager, tokenAddress, "15", "5000")
-  })
+  // async function doEmptyChannelWithChallenge(from = accounts[1], timeout = 0) {
+  //   const hash = await web3.utils.soliditySha3(
+  //     channelManager.address,
+  //     { type: 'address[2]', value: init.user },
+  //     { type: 'uint256[2]', value: init.weiBalances },
+  //     { type: 'uint256[2]', value: init.tokenBalances },
+  //     { type: 'uint256[4]', value: init.pendingWeiUpdates },
+  //     { type: 'uint256[4]', value: init.pendingTokenUpdates },
+  //     { type: 'uint256[2]', value: init.txCount },
+  //     { type: 'bytes32', value: init.threadRoot },
+  //     init.threadCount,
+  //     init.timeout
+  //   )
+  //   const signatureHub = await web3.eth.accounts.sign(hash, hub.privateKey)
+  //   const signatureUser = await web3.eth.accounts.sign(hash, performer.privateKey)
 
-  beforeEach(async () => {
-    init = {
-      "user": [accounts[1], accounts[1]],
-      "weiBalances": [0, 0],
-      "tokenBalances": [0, 0],
-      "pendingWeiUpdates": [0, 0, 0, 0],
-      "pendingTokenUpdates": [0, 0, 0, 0],
-      "txCount": [1, 1],
-      "threadRoot": emptyRootHash,
-      "threadCount": 0,
-      "timeout": 0
-    }
-  })
+  //   init.sigHub = signatureHub.signature
+  //   init.sigUser = signatureUser.signature
 
-  describe('emptyChannelWithChallenge', () => {
-    it("happy case", async() => {
-      await channelManager.startExit(accounts[1], { from: accounts[0] })
-      await doEmptyChannelWithChallenge()
-    })
-  })
-});
+  //   await channelManager.emptyChannelWithChallenge(
+  //     init.user,
+  //     init.weiBalances,
+  //     init.tokenBalances,
+  //     init.pendingWeiUpdates,
+  //     init.pendingTokenUpdates,
+  //     init.txCount,
+  //     init.threadRoot,
+  //     init.threadCount,
+  //     timeout,
+  //     init.sigHub,
+  //     init.sigUser,
+  //     { from }
+  //   )
+  // }
 
-/*
-// TODO
-contract("ChannelManager::emptyChannel", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-  })
-
-  describe('emptyChannel', () => {
-    it("happy case", async() => {
-      await channelManager.emptyChannel(
-        accounts[0]
-      )
-    })
-  })
-});
-
-// TODO
-contract("ChannelManager::startExitThread", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-  })
-
-  describe('startExitThread', () => {
-    it("happy case", async() => {
-      await channelManager.startExitThread(
-        accounts[0]
-      )
-    })
-  })
-});
-
-// TODO
-contract("ChannelManager::startExitThreadWithUpdate", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-  })
-
-  describe('startExitThreadWithUpdate', () => {
-    it("happy case", async() => {
-      await channelManager.startExitThreadWithUpdate(
-        accounts[0]
-      )
-    })
-  })
-});
-
-// TODO
-contract("ChannelManager::fastEmptyThread", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-  })
-
-  describe('fastEmptyThread', () => {
-    it("happy case", async() => {
-      await channelManager.fastEmptyThread(
-        accounts[0]
-      )
-    })
-  })
-});
-
-// TODO
-contract("ChannelManager::emptyThread", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-  })
-
-  describe('emptyThread', () => {
-    it("happy case", async() => {
-      await channelManager.emptyThread(
-        accounts[0]
-      )
-    })
-  })
-});
-
-// TODO
-contract("ChannelManager::nukeThreads", accounts => {
-  let channelManager
-  before('deploy contracts', async () => {
-    channelManager = await Ledger.deployed()
-  })
-
-  describe('nukeThreads', () => {
-    it("happy case", async() => {
-      await channelManager.nukeThreads(
-        accounts[0]
-      )
-    })
-  })
-});
-
-*/
+  // describe('emptyChannelWithChallenge', () => {
+  //   it("happy case", async() => {
+  //     await channelManager.startExit(accounts[1], { from: accounts[0] })
+  //     await doEmptyChannelWithChallenge()
+  //   })
+  // })
+})
