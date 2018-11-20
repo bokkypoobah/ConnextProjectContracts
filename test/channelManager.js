@@ -376,10 +376,55 @@ contract("ChannelManager::startExit", accounts => {
   })
 
   describe('startExit', () => {
+    it("fails when user == hub", async () => {
+      try {
+        await channelManager.startExit(
+          accounts[0]
+        )
+        throw new Error('startExit should fail if user == hub')
+      } catch (err) {
+        assert.equal(err.reason, 'user can not be hub')
+      }
+    })
+
+    it("fails when user == contract", async () => {
+      try {
+        await channelManager.startExit(
+          channelManager.address
+        )
+        throw new Error('startExit should fail if user == channel manager')
+      } catch (err) {
+        assert.equal(err.reason, 'user can not be channel manager')
+      }
+    })
+
+    it("fails when sender not hub or user", async () => {
+      try {
+        await channelManager.startExit(
+          accounts[1],
+          { from: accounts[2] }
+        )
+        throw new Error('startExit should fail if sender not hub or user')
+      } catch (err) {
+        assert.equal(err.reason, 'exit initiator must be user or hub')
+      }
+    })
+
     it("happy case", async () => {
       await channelManager.startExit(
         accounts[1]
       )
+    })
+
+    it("fails when channel.status != Open", async () => {
+      try {
+        await channelManager.startExit(
+          accounts[1]
+        )
+        throw new Error('startExit should fail if channel not open')
+      } catch (err) {
+        assert.equal(err.reason, 'channel must be open')
+      }
     })
   })
 });
