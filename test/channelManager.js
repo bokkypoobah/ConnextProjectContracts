@@ -433,7 +433,7 @@ contract("ChannelManager::startExit", accounts => {
 contract("ChannelManager::startExitWithUpdate", accounts => {
   let channelManager, init
 
-  async function doHappyCase(from = accounts[0]) {
+  async function doHappyCase(from = accounts[0], timeout = 0) {
     const hash = await web3.utils.soliditySha3(
       channelManager.address,
       { type: 'address[2]', value: init.user },
@@ -461,7 +461,7 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
       init.txCount,
       init.threadRoot,
       init.threadCount,
-      init.timeout,
+      timeout,
       init.sigHub,
       init.sigUser,
       { from }
@@ -493,6 +493,15 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
         throw new Error('startExitWithUpdate should fail if sender not hub or user')
       } catch (err) {
         assert.equal(err.reason, 'exit initiator must be user or hub')
+      }
+    })
+
+    it("fails when timeout != 0", async () => {
+      try {
+        await doHappyCase(accounts[0], 10000)
+        throw new Error('startExitWithUpdate should fail if timeout not 0')
+      } catch (err) {
+        assert.equal(err.reason, "can't start exit with time-sensitive states")
       }
     })
 
