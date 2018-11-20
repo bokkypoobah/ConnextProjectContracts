@@ -499,47 +499,14 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  // async function doEmptyChannelWithChallenge(from = accounts[1], timeout = 0) {
-  //   const hash = await web3.utils.soliditySha3(
-  //     channelManager.address,
-  //     { type: 'address[2]', value: init.user },
-  //     { type: 'uint256[2]', value: init.weiBalances },
-  //     { type: 'uint256[2]', value: init.tokenBalances },
-  //     { type: 'uint256[4]', value: init.pendingWeiUpdates },
-  //     { type: 'uint256[4]', value: init.pendingTokenUpdates },
-  //     { type: 'uint256[2]', value: init.txCount },
-  //     { type: 'bytes32', value: init.threadRoot },
-  //     init.threadCount,
-  //     init.timeout
-  //   )
-  //   const signatureHub = await web3.eth.accounts.sign(hash, hub.privateKey)
-  //   const signatureUser = await web3.eth.accounts.sign(hash, performer.privateKey)
-
-  //   init.sigHub = signatureHub.signature
-  //   init.sigUser = signatureUser.signature
-
-  //   await channelManager.emptyChannelWithChallenge(
-  //     init.user,
-  //     init.weiBalances,
-  //     init.tokenBalances,
-  //     init.pendingWeiUpdates,
-  //     init.pendingTokenUpdates,
-  //     init.txCount,
-  //     init.threadRoot,
-  //     init.threadCount,
-  //     timeout,
-  //     init.sigHub,
-  //     init.sigUser,
-  //     { from }
-  //   )
-  // }
-
-  // describe('emptyChannelWithChallenge', () => {
-  //   it("happy case", async() => {
-  //     await channelManager.startExit(accounts[1], { from: accounts[0] })
-  //     await doEmptyChannelWithChallenge()
-  //   })
-  // })
+  describe('emptyChannelWithChallenge', () => {
+    it("happy case", async() => {
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await channelManager.startExit(performer.address, { from: hub.address })
+      await emptyChannelWithChallenge(initChannel, performer.address)
+    })
+  })
 
   describe('emptyChannel', () => {
     it("happy case", async () => {
