@@ -460,38 +460,43 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  // describe('startExitWithUpdate', () => {
-  //   it("fails when sender not hub or user", async () => {
-  //     try {
-  //       await doStartExitWithUpdate(accounts[2])
-  //       throw new Error('startExitWithUpdate should fail if sender not hub or user')
-  //     } catch (err) {
-  //       assert.equal(err.reason, 'exit initiator must be user or hub')
-  //     }
-  //   })
+  describe('startExitWithUpdate', () => {
+    it("fails when sender not hub or user", async () => {
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
 
-  //   it("fails when timeout != 0", async () => {
-  //     try {
-  //       await doStartExitWithUpdate(accounts[0], 10000)
-  //       throw new Error('startExitWithUpdate should fail if timeout not 0')
-  //     } catch (err) {
-  //       assert.equal(err.reason, "can't start exit with time-sensitive states")
-  //     }
-  //   })
+      await startExitWithUpdate(initChannel, viewer.address)
+        .should
+        .be
+        .rejectedWith('exit initiator must be user or hub')
+    })
 
-  //   it("happy case", async () => {
-  //     await doStartExitWithUpdate()
-  //   })
+    it("fails when timeout != 0", async () => {
+      initChannel.timeout = 1
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
 
-  //   it("fails when channel.status != Open", async () => {
-  //     try {
-  //       await doStartExitWithUpdate()
-  //       throw new Error('startExitWithUpdate should fail if channel not open')
-  //     } catch (err) {
-  //       assert.equal(err.reason, 'channel must be open')
-  //     }
-  //   })
-  // })
+      await startExitWithUpdate(initChannel, hub.address)
+        .should.be.rejectedWith('can\'t start exit with time-sensitive states')
+    })
+
+    it("happy case", async () => {
+      initChannel.user = performer.address
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await startExitWithUpdate(initChannel, hub.address)
+    })
+
+    it("fails when channel.status != Open", async () => {
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await channelManager.startExit(performer.address) // channel.status = Status.ChannelDispute
+      await startExitWithUpdate(initChannel, hub.address)
+        .should
+        .be
+        .rejectedWith('channel must be open')
+    })
+  })
 
   // async function doEmptyChannelWithChallenge(from = accounts[1], timeout = 0) {
   //   const hash = await web3.utils.soliditySha3(
