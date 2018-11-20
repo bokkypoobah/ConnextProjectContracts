@@ -433,7 +433,7 @@ contract("ChannelManager::startExit", accounts => {
 contract("ChannelManager::startExitWithUpdate", accounts => {
   let channelManager, init
 
-  async function doHappyCase(from = accounts[0], timeout = 0) {
+  async function doStartExitWithUpdate(from = accounts[0], timeout = 0) {
     const hash = await web3.utils.soliditySha3(
       channelManager.address,
       { type: 'address[2]', value: init.user },
@@ -489,7 +489,7 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
   describe('startExitWithUpdate', () => {
     it("fails when sender not hub or user", async () => {
       try {
-        await doHappyCase(accounts[2])
+        await doStartExitWithUpdate(accounts[2])
         throw new Error('startExitWithUpdate should fail if sender not hub or user')
       } catch (err) {
         assert.equal(err.reason, 'exit initiator must be user or hub')
@@ -498,7 +498,7 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
 
     it("fails when timeout != 0", async () => {
       try {
-        await doHappyCase(accounts[0], 10000)
+        await doStartExitWithUpdate(accounts[0], 10000)
         throw new Error('startExitWithUpdate should fail if timeout not 0')
       } catch (err) {
         assert.equal(err.reason, "can't start exit with time-sensitive states")
@@ -506,12 +506,12 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
     })
 
     it("happy case", async () => {
-      await doHappyCase()
+      await doStartExitWithUpdate()
     })
 
     it("fails when channel.status != Open", async () => {
       try {
-        await doHappyCase()
+        await doStartExitWithUpdate()
         throw new Error('startExitWithUpdate should fail if channel not open')
       } catch (err) {
         assert.equal(err.reason, 'channel must be open')
@@ -519,24 +519,72 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
     })
   })
 });
-/*
 
-// TODO
 contract("ChannelManager::emptyChannelWithChallenge", accounts => {
-  let channelManager
+  let channelManager, init
+
+  async function doEmptyChannelWithChallenge(from = accounts[1], timeout = 0) {
+    const hash = await web3.utils.soliditySha3(
+      channelManager.address,
+      { type: 'address[2]', value: init.user },
+      { type: 'uint256[2]', value: init.weiBalances },
+      { type: 'uint256[2]', value: init.tokenBalances },
+      { type: 'uint256[4]', value: init.pendingWeiUpdates },
+      { type: 'uint256[4]', value: init.pendingTokenUpdates },
+      { type: 'uint256[2]', value: init.txCount },
+      { type: 'bytes32', value: init.threadRoot },
+      init.threadCount,
+      init.timeout
+    )
+    const signatureHub = await web3.eth.accounts.sign(hash, privKeys[0])
+    const signatureUser = await web3.eth.accounts.sign(hash, privKeys[1])
+
+    init.sigHub = signatureHub.signature
+    init.sigUser = signatureUser.signature
+
+    await channelManager.emptyChannelWithChallenge(
+      init.user,
+      init.weiBalances,
+      init.tokenBalances,
+      init.pendingWeiUpdates,
+      init.pendingTokenUpdates,
+      init.txCount,
+      init.threadRoot,
+      init.threadCount,
+      timeout,
+      init.sigHub,
+      init.sigUser,
+      { from }
+    )
+  }
+
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
   })
 
+  beforeEach(async () => {
+    init = {
+      "user": [accounts[1], accounts[1]],
+      "weiBalances": [0, 0],
+      "tokenBalances": [0, 0],
+      "pendingWeiUpdates": [0, 0, 0, 0],
+      "pendingTokenUpdates": [0, 0, 0, 0],
+      "txCount": [1, 1],
+      "threadRoot": emptyRootHash,
+      "threadCount": 0,
+      "timeout": 0
+    }
+  })
+
   describe('emptyChannelWithChallenge', () => {
     it("happy case", async() => {
-      await channelManager.emptyChannelWithChallenge(
-        accounts[0]
-      )
+      await channelManager.startExit(accounts[1], { from: accounts[0] })
+      await doEmptyChannelWithChallenge()
     })
   })
 });
 
+/*
 // TODO
 contract("ChannelManager::emptyChannel", accounts => {
   let channelManager
