@@ -594,12 +594,13 @@ contract ChannelManager {
         require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
+        require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
+
         Thread storage thread = threads[sender][receiver][threadId];
 
         require(thread.threadClosingTime == 0, "thread closing time must be zero");
 
-        //explicitly set txCount and recipient balances to zero
-        _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+        _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
         thread.weiBalances = weiBalances;
         thread.tokenBalances = tokenBalances;
@@ -636,11 +637,12 @@ contract ChannelManager {
         require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
         require(user == threadMembers[0] || user == threadMembers[1], "user must be thread sender or receiver");
 
+        require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
+
         Thread storage thread = threads[threadMembers[0]][threadMembers[1]][threadId];
         require(thread.threadClosingTime == 0, "thread closing time must be zero");
 
-        //explicitly set txCount and recipient balances to zero
-        _verifyThread(threadMembers[0], threadMembers[1], threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+        _verifyThread(threadMembers[0], threadMembers[1], threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
         // *********************
         // PROCESS THREAD UPDATE
@@ -738,6 +740,8 @@ contract ChannelManager {
         require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
+        require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
+
         Thread storage thread = threads[sender][receiver][threadId];
 
         // We check to make sure that the thread state has been finalized
@@ -746,8 +750,8 @@ contract ChannelManager {
         // Make sure user has not emptied before
         require(!thread.emptied[user == sender ? 0 : 1], "user cannot empty twice");
 
-        // verify initial thread state. Explicitly set txCount and recipient balances to 0
-        _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+        // verify initial thread state.
+        _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
         require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
         require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
