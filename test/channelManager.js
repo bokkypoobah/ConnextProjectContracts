@@ -245,7 +245,7 @@ contract("ChannelManager::hubAuthorizedUpdate", accounts => {
 
 
 contract("ChannelManager::userAuthorizedUpdate", accounts => {
-  let channelManager
+  let channelManager, tokenAddress
 
   before('deploy contracts', async () => {
     channelManager = await Ledger.deployed()
@@ -435,7 +435,7 @@ contract("ChannelManager::startExit", accounts => {
 
 
 contract("ChannelManager::startExitWithUpdate", accounts => {
-  let channelManager, init
+  let channelManager, tokenAddress, init
 
   async function doStartExitWithUpdate(from = accounts[0], timeout = 0) {
     const hash = await web3.utils.soliditySha3(
@@ -528,7 +528,7 @@ contract("ChannelManager::startExitWithUpdate", accounts => {
 });
 
 contract("ChannelManager::emptyChannelWithChallenge", accounts => {
-  let channelManager, init
+  let channelManager, tokenAddress, init
 
   async function doEmptyChannelWithChallenge(from = accounts[1], timeout = 0) {
     const hash = await web3.utils.soliditySha3(
