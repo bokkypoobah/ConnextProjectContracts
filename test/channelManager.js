@@ -56,13 +56,13 @@ async function moveForwardSecs(secs) {
   return true
 }
 
-// async function generateThreadProof(threadHashToProve, threadInitStates) {
-//   return await Connext.Utils.generateThreadProof(threadHashToProve, threadInitStates)
-// }
+async function generateThreadProof(threadHashToProve, threadInitStates) {
+  return await Connext.Utils.generateThreadProof(threadHashToProve, threadInitStates)
+}
 
-// async function generateThreadRootHash(threadInitStates){
-//   return await Connext.Utils.generateThreadRootHash([threadInitStates])
-// }
+async function generateThreadRootHash(threadInitStates){
+  return await Connext.Utils.generateThreadRootHash([threadInitStates])
+}
 
 function getEventParams(tx, event) {
   if (tx.logs.length > 0) {
@@ -294,32 +294,32 @@ contract("ChannelManager", accounts => {
       "threadCount": 0,
       "timeout": 0
     }
-    // initThread = {
-    //   "hub": hub.address,
-    //   "user": viewer.address,
-    //   "sender": viewer.address,
-    //   "receiver": performer.address,
-    //   "recipient": performer.address,
-    //   "weiBalances": [0, 0],
-    //   "tokenBalances": [0, 0],
-    //   "pendingWeiUpdates": [0, 0, 0, 0],
-    //   "pendingTokenUpdates": [0, 0, 0, 0],
-    //   "txCount": [1, 1],
-    //   "threadRoot": emptyRootHash,
-    //   "threadCount": 0,
-    //   "timeout": 0,
-    //   "proof": await generateThreadRootHash({
-    //     "contractAddress": channelManager.address,
-    //     "user": viewer.address,
-    //     "sender": hub.address,
-    //     "receiver": performer.address,
-    //     "balanceWeiSender": 0,
-    //     "balanceWeiReceiver": 0,
-    //     "balanceTokenSender": 0,
-    //     "balanceTokenReceiver": 0,
-    //     "txCount": 2
-    //   })
-    // }
+    initThread = {
+      "hub": hub.address,
+      "user": viewer.address,
+      "sender": viewer.address,
+      "receiver": performer.address,
+      "recipient": performer.address,
+      "weiBalances": [0, 0],
+      "tokenBalances": [0, 0],
+      "pendingWeiUpdates": [0, 0, 0, 0],
+      "pendingTokenUpdates": [0, 0, 0, 0],
+      "txCount": [1, 1],
+      "threadRoot": emptyRootHash,
+      "threadCount": 0,
+      "timeout": 0,
+      "proof": await generateThreadRootHash({
+        "contractAddress": channelManager.address,
+        "user": viewer.address,
+        "sender": hub.address,
+        "receiver": performer.address,
+        "balanceWeiSender": 0,
+        "balanceWeiReceiver": 0,
+        "balanceTokenSender": 0,
+        "balanceTokenReceiver": 0,
+        "txCount": 2
+      })
+    }
   })
 
   afterEach(async () => {
