@@ -61,7 +61,7 @@ async function generateThreadProof(threadHashToProve, threadInitStates) {
 }
 
 async function generateThreadRootHash(threadInitStates){
-  return await Connext.Utils.generateThreadRootHash([threadInitStates])
+  return await Connext.Utils.generateThreadRootHash(threadInitStates)
 }
 
 function getEventParams(tx, event) {
@@ -308,7 +308,7 @@ contract("ChannelManager", accounts => {
       "threadRoot": emptyRootHash,
       "threadCount": 0,
       "timeout": 0,
-      "proof": await generateThreadRootHash({
+      "proof": await generateThreadRootHash([{
         "contractAddress": channelManager.address,
         "user": viewer.address,
         "sender": hub.address,
@@ -318,7 +318,7 @@ contract("ChannelManager", accounts => {
         "balanceTokenSender": 0,
         "balanceTokenReceiver": 0,
         "txCount": 2
-      })
+      }])
     }
   })
 
