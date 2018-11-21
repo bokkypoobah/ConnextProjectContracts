@@ -1,6 +1,6 @@
 "use strict";
 const should = require("chai")
-const Connext = require("connext")
+const Connext = require("../client/dist/Utils.js");
 const HttpProvider = require("ethjs-provider-http")
 const EthRPC = require("ethjs-rpc")
 const config = require("./config.json")

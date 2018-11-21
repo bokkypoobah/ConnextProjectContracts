@@ -17,7 +17,7 @@ env/
 .env/
 *egg-info*
 misc/
-dist/
+/dist/
 Icon?
 node_modules/
 build/
