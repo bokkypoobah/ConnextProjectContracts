@@ -1,20 +1,11 @@
 "use strict";
-var __assign = (this && this.__assign) || Object.assign || function(t) {
-    for (var s, i = 1, n = arguments.length; i < n; i++) {
-        s = arguments[i];
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-            t[p] = s[p];
-    }
-    return t;
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-var BN = require("bn.js");
-exports.isUnsignedChannelState = function (state) {
-    var keys = Object.keys(state);
+const BN = require("bn.js");
+exports.isUnsignedChannelState = (state) => {
+    const keys = Object.keys(state);
     return keys.indexOf('sigUser') === -1 && keys.indexOf('sigHub') === -1;
 };
-exports.channelStateToSignedChannelState = function (channel, sig, isUser) {
-    if (isUser === void 0) { isUser = true; }
+exports.channelStateToSignedChannelState = (channel, sig, isUser = true) => {
     return {
         contractAddress: channel.contractAddress,
         user: channel.user,
@@ -55,14 +46,14 @@ exports.ChannelUpdateReasons = {
     OpenThread: 'OpenThread',
     CloseThread: 'CloseThread',
 };
-exports.channelStateToChannelStateUpdate = function (reason, state, metadata) {
+exports.channelStateToChannelStateUpdate = (reason, state, metadata) => {
     return {
-        reason: reason,
-        state: state,
-        metadata: metadata,
+        reason,
+        state,
+        metadata,
     };
 };
-exports.ChannelStateUpdateToContractChannelState = function (hubState) {
+exports.ChannelStateUpdateToContractChannelState = (hubState) => {
     return hubState.state;
 };
 function channelStateToPendingBalances(channelState) {
@@ -90,7 +81,7 @@ exports.channelStateToPendingBalances = channelStateToPendingBalances;
  ******* TYPE CONVERSIONS ********
  *********************************/
 // util to convert from string to bn for all types
-var channelFieldsToConvert = [
+exports.channelNumericFields = [
     'balanceWeiUser',
     'balanceWeiHub',
     'balanceTokenUser',
@@ -104,60 +95,60 @@ var channelFieldsToConvert = [
     'pendingWithdrawalTokenUser',
     'pendingWithdrawalTokenHub',
 ];
-var threadFieldsToConvert = [
+exports.threadNumericFields = [
     'balanceWeiSender',
     'balanceWeiReceiver',
     'balanceTokenSender',
     'balanceTokenReceiver',
 ];
-var balanceFieldsToConvert = ['balanceWei', 'balanceToken'];
+exports.balanceNumericFields = ['balanceWei', 'balanceToken'];
 function channelStateToBN(channelState) {
-    return stringToBN(channelFieldsToConvert, channelState);
+    return stringToBN(exports.channelNumericFields, channelState);
 }
 exports.channelStateToBN = channelStateToBN;
 function channelStateToString(channelState) {
-    return BNtoString(channelFieldsToConvert, channelState);
+    return BNtoString(exports.channelNumericFields, channelState);
 }
 exports.channelStateToString = channelStateToString;
 function signedChannelStateToBN(channelState) {
-    return stringToBN(channelFieldsToConvert, channelState);
+    return stringToBN(exports.channelNumericFields, channelState);
 }
 exports.signedChannelStateToBN = signedChannelStateToBN;
 function signedChannelStateToString(channelState) {
-    return BNtoString(channelFieldsToConvert, channelState);
+    return BNtoString(exports.channelNumericFields, channelState);
 }
 exports.signedChannelStateToString = signedChannelStateToString;
 function threadStateToBN(threadState) {
-    return stringToBN(threadFieldsToConvert, threadState);
+    return stringToBN(exports.threadNumericFields, threadState);
 }
 exports.threadStateToBN = threadStateToBN;
 function threadStateToString(threadState) {
-    return BNtoString(threadFieldsToConvert, threadState);
+    return BNtoString(exports.threadNumericFields, threadState);
 }
 exports.threadStateToString = threadStateToString;
 function balancesToBN(balances) {
-    return stringToBN(balanceFieldsToConvert, balances);
+    return stringToBN(exports.balanceNumericFields, balances);
 }
 exports.balancesToBN = balancesToBN;
 function balancesToString(balances) {
-    return BNtoString(balanceFieldsToConvert, balances);
+    return BNtoString(exports.balanceNumericFields, balances);
 }
 exports.balancesToString = balancesToString;
 function pendingBalancesToBN(pending) {
     return {
-        hubDeposit: stringToBN(balanceFieldsToConvert, pending.hubDeposit),
-        userDeposit: stringToBN(balanceFieldsToConvert, pending.userDeposit),
-        hubWithdrawal: stringToBN(balanceFieldsToConvert, pending.hubWithdrawal),
-        userWithdrawal: stringToBN(balanceFieldsToConvert, pending.userWithdrawal),
+        hubDeposit: stringToBN(exports.balanceNumericFields, pending.hubDeposit),
+        userDeposit: stringToBN(exports.balanceNumericFields, pending.userDeposit),
+        hubWithdrawal: stringToBN(exports.balanceNumericFields, pending.hubWithdrawal),
+        userWithdrawal: stringToBN(exports.balanceNumericFields, pending.userWithdrawal),
     };
 }
 exports.pendingBalancesToBN = pendingBalancesToBN;
 function pendingBalancesToString(pending) {
     return {
-        hubDeposit: BNtoString(balanceFieldsToConvert, pending.hubDeposit),
-        userDeposit: BNtoString(balanceFieldsToConvert, pending.userDeposit),
-        hubWithdrawal: BNtoString(balanceFieldsToConvert, pending.hubWithdrawal),
-        userWithdrawal: BNtoString(balanceFieldsToConvert, pending.userWithdrawal),
+        hubDeposit: BNtoString(exports.balanceNumericFields, pending.hubDeposit),
+        userDeposit: BNtoString(exports.balanceNumericFields, pending.userDeposit),
+        hubWithdrawal: BNtoString(exports.balanceNumericFields, pending.hubWithdrawal),
+        userWithdrawal: BNtoString(exports.balanceNumericFields, pending.userWithdrawal),
     };
 }
 exports.pendingBalancesToString = pendingBalancesToString;
@@ -165,8 +156,8 @@ function stringToBN(fields, obj) {
     if (!obj) {
         return obj;
     }
-    var out = __assign({}, obj);
-    fields.forEach(function (field) {
+    const out = Object.assign({}, obj);
+    fields.forEach(field => {
         out[field] = new BN(out[field]);
     });
     return out;
@@ -176,10 +167,11 @@ function BNtoString(fields, obj) {
     if (!obj) {
         return obj;
     }
-    var out = __assign({}, obj);
-    fields.forEach(function (field) {
+    const out = Object.assign({}, obj);
+    fields.forEach(field => {
         out[field] = out[field].toString();
     });
     return out;
 }
 exports.BNtoString = BNtoString;
+//# sourceMappingURL=types.js.map
