@@ -8,14 +8,20 @@ Use the scripts in the package.json to ensure the proper test environment:
     # Node and npm versions:
     # node >= v10
     # npm >= v6
-    
+
     # install the dev dependencies
     # run ganache in the background (or separate shell) ensuring the proper mnemonic
     # run the primary test suite using truffle network=ganache settings
-    
+
     $ npm i
     $ npm run ganache &
     $ npm test
+
+You can debug the test suite using chrome dev tools:
+
+    $ npm run test:debug
+
+    # browse to chrome://inspect
 
 # DOCUMENT FOR CONTRACT SPEC
 
@@ -335,14 +341,14 @@ A thread is opened by reducing the channel balances in the parties' respective c
     4. The hub validates both of these channel updates and countersigns.
     5. Then, the viewer is able to tip the performer by generating new thread states in a similar format to the initial thread state above.
 
-Threads are closed offchain following the same procedure but in reverse. First, the viewer submits a channel update reintroducing the final thread balances and removing the thread initial state from thread root to the hub. 
+Threads are closed offchain following the same procedure but in reverse. First, the viewer submits a channel update reintroducing the final thread balances and removing the thread initial state from thread root to the hub.
 
 ## ThreadIDs
 
 Threads are keyed using both sender/receiver addresses as well as a threadId.
 
     // threads[sender][receiver][threadId]
-    mapping(address => mapping(address => mapping(uint256 => Thread))) threads; 
+    mapping(address => mapping(address => mapping(uint256 => Thread))) threads;
 
 When a thread is closed and reopened, the threadId is incremented. This stops replay attacks where an old thread state can be used to dispute a new thread.
 
@@ -1542,7 +1548,7 @@ If the hub == user, the `hub/userAuthorizedUpdate` functions would not allow the
 1. The channel would be looked up by the user, which would fetch the hub's channel with itself.
 2. The call to `_verifyAuthorizedUpdate` would have `isHub = true` and would expect the hub and user balances to come from the hub's contract reserves, which would be fine.
 3. The call to `_verifySig` would check the `sigUser`, which would be expected to be the hub's sig, which would be fine.
-4. 
+4.
 
 ## What if the sender and receiver for a thread are the same?
 
