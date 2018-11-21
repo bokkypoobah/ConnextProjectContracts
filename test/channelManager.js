@@ -94,7 +94,7 @@ async function updateHash(data, privateKey) {
 
 async function updateThreadHash(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
-    channelManager.address,
+    {type: "address", value: channelManager.address},
     {type: 'address', value: data.sender},
     {type: 'address', value: data.receiver},
     {type: 'uint256', value: data.threadId},
@@ -313,7 +313,7 @@ contract("ChannelManager", accounts => {
         "contractAddress": channelManager.address,
         "sender": hub.address,
         "receiver": performer.address,
-        "threadId" : 1,
+        "threadId": 1,
         "balanceWeiSender": 0,
         "balanceWeiReceiver": 0,
         "balanceTokenSender": 0,
@@ -628,15 +628,15 @@ contract("ChannelManager", accounts => {
       init.txCount = [2, 2]
 
       const threadInitialState = {
-          "contractAddress" : channelManager.address,
-          "sender" : viewer.address,
-          "receiver" : performer.address,
-          "threadId" : 1,
-          "balanceWeiSender" : 10,
-          "balanceWeiReceiver" : 0,
-          "balanceTokenSender" : 0,
-          "balanceTokenReceiver" : 0,
-          "txCount" : 0
+          "contractAddress": channelManager.address,
+          "sender": viewer.address,
+          "receiver": performer.address,
+          "threadId": 1,
+          "balanceWeiSender": 10,
+          "balanceWeiReceiver": 0,
+          "balanceTokenSender": 0,
+          "balanceTokenReceiver": 0,
+          "txCount": 0
       }
       init.threadRoot = await generateThreadRootHash([threadInitialState])
       init.proof = await generateThreadProof(threadInitialState, [threadInitialState])
@@ -650,7 +650,8 @@ contract("ChannelManager", accounts => {
       await channelManager.emptyChannel(viewer.address)
 
       init.threadId = 1
-      init.weiBalances[10, 0]
+      init.weiBalances = [10, 0]
+      init.txCount = 0
       init.sig = await updateThreadHash(init, viewer.privateKey)
 
       await startExitThread(init, viewer.address)
