@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-var util = require("ethereumjs-util");
-var merkleUtils_1 = require("./merkleUtils");
+const util = require("ethereumjs-util");
+const merkleUtils_1 = require("./merkleUtils");
 function combinedHash(first, second) {
     if (!second) {
         return first;
@@ -9,16 +9,16 @@ function combinedHash(first, second) {
     if (!first) {
         return second;
     }
-    var sorted = Buffer.concat([first, second].sort(Buffer.compare));
+    let sorted = Buffer.concat([first, second].sort(Buffer.compare));
     return util.keccak256(sorted);
 }
 function deduplicate(buffers) {
-    return buffers.filter(function (buffer, i) {
-        return buffers.findIndex(function (e) { return e.equals(buffer); }) === i;
+    return buffers.filter((buffer, i) => {
+        return buffers.findIndex(e => e.equals(buffer)) === i;
     });
 }
 function getPair(index, layer) {
-    var pairIndex = index % 2 ? index - 1 : index + 1;
+    let pairIndex = index % 2 ? index - 1 : index + 1;
     if (pairIndex < layer.length) {
         return layer[pairIndex];
     }
@@ -30,7 +30,7 @@ function getLayers(elements) {
     if (elements.length === 0) {
         return [[Buffer.from('')]];
     }
-    var layers = [];
+    let layers = [];
     layers.push(elements);
     while (layers[layers.length - 1].length > 1) {
         layers.push(getNextLayer(layers[layers.length - 1]));
@@ -38,48 +38,48 @@ function getLayers(elements) {
     return layers;
 }
 function getNextLayer(elements) {
-    return elements.reduce(function (layer, element, index, arr) {
+    return elements.reduce((layer, element, index, arr) => {
         if (index % 2 === 0) {
             layer.push(combinedHash(element, arr[index + 1]));
         }
         return layer;
     }, []);
 }
-var MerkleTree = /** @class */ (function () {
-    function MerkleTree(_elements) {
+class MerkleTree {
+    constructor(_elements) {
         if (!_elements.every(merkleUtils_1.MerkleUtils.isHash)) {
             throw new Error('elements must be 32 byte buffers');
         }
-        var e = { elements: deduplicate(_elements) };
+        const e = { elements: deduplicate(_elements) };
         Object.assign(this, e);
         this.elements.sort(Buffer.compare);
-        var l = { layers: getLayers(this.elements) };
+        const l = { layers: getLayers(this.elements) };
         Object.assign(this, l);
     }
-    MerkleTree.prototype.getRoot = function () {
+    getRoot() {
         if (!this.root) {
-            var r = { root: this.layers[this.layers.length - 1][0] };
+            let r = { root: this.layers[this.layers.length - 1][0] };
             Object.assign(this, r);
         }
         return this.root;
-    };
-    MerkleTree.prototype.verify = function (proof, element) {
-        return this.root.equals(proof.reduce(function (hash, pair) { return combinedHash(hash, pair); }, element));
-    };
-    MerkleTree.prototype.proof = function (element) {
-        var index = this.elements.findIndex(function (e) { return e.equals(element); });
+    }
+    verify(proof, element) {
+        return this.root.equals(proof.reduce((hash, pair) => combinedHash(hash, pair), element));
+    }
+    proof(element) {
+        let index = this.elements.findIndex((e) => e.equals(element));
         if (index === -1) {
             throw new Error('element not found in merkle tree');
         }
-        return this.layers.reduce(function (proof, layer) {
-            var pair = getPair(index, layer);
+        return this.layers.reduce((proof, layer) => {
+            let pair = getPair(index, layer);
             if (pair) {
                 proof.push(pair);
             }
             index = Math.floor(index / 2);
             return proof;
         }, []);
-    };
-    return MerkleTree;
-}());
+    }
+}
 exports.default = MerkleTree;
+//# sourceMappingURL=merkleTree.js.map
