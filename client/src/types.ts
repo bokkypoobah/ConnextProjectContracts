@@ -169,9 +169,9 @@ export const ChannelStateUpdateToContractChannelState = (
 // this is everything included in a thread update sig
 export type ThreadStateFingerprint<T=string> = {
   contractAddress: Address
-  user: Address
   sender: Address
   receiver: Address
+  threadId: T
   balanceWeiSender: T
   balanceWeiReceiver: T
   balanceTokenSender: T

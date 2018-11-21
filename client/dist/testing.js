@@ -161,9 +161,9 @@ const initialChannelStates = {
 const initialThreadStates = {
     'full': () => ({
         contractAddress: mkAddress('0xCCC'),
-        user: mkAddress('0xAAA'),
         sender: mkAddress('0x222'),
         receiver: mkAddress('0x333'),
+        threadId: '1',
         balanceWeiSender: '1',
         balanceWeiReceiver: '2',
         balanceTokenSender: '3',
@@ -173,9 +173,9 @@ const initialThreadStates = {
     }),
     'empty': () => ({
         contractAddress: mkAddress('0xCCC'),
-        user: mkAddress('0xAAA'),
         sender: mkAddress('0x222'),
         receiver: mkAddress('0x333'),
+        threadId: '1',
         balanceWeiSender: '0',
         balanceWeiReceiver: '0',
         balanceTokenSender: '0',

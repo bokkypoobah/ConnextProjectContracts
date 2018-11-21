@@ -126,18 +126,18 @@ class Connext {
             const signedChannel = yield this.createChannelStateUpdate(opts);
             return signedChannel;
         });
-        this.openThread = (receiver, balance, user) => __awaiter(this, void 0, void 0, function* () {
+        this.openThread = (receiver, balance, threadId, sender) => __awaiter(this, void 0, void 0, function* () {
             // hits hub unless dispute
             // default user is accounts[0]
-            user = user || (yield this.getDefaultUser());
+            sender = sender || (yield this.getDefaultUser());
             // get channel
-            const prevChannel = yield this.getChannel(user);
+            const prevChannel = yield this.getChannel(sender);
             // create initial thread state
             const threadState = {
                 contractAddress: prevChannel.state.contractAddress,
-                user,
-                sender: user,
+                sender,
                 receiver,
+                threadId,
                 balanceWeiReceiver: '0',
                 balanceTokenReceiver: '0',
                 balanceWeiSender: balance.balanceWei,
@@ -154,7 +154,7 @@ class Connext {
             const expectedWeiUser = prevBN.balanceWeiUser.sub(balBN.balanceWei);
             const expectedTokenUser = prevBN.balanceWeiUser.sub(balBN.balanceToken);
             // regenerate thread root on open
-            let initialThreadStates = yield this.getInitialThreadStates(user);
+            let initialThreadStates = yield this.getInitialThreadStates(sender);
             initialThreadStates.push(threadState);
             const newThreadRoot = Utils_1.Utils.generateThreadRootHash(initialThreadStates);
             // generate expected state
@@ -190,15 +190,15 @@ class Connext {
             return signedChannel;
         });
         // TO DO: fix for performer closing thread
-        this.closeThread = (receiver, user, signer) => __awaiter(this, void 0, void 0, function* () {
+        this.closeThread = (receiver, sender, signer) => __awaiter(this, void 0, void 0, function* () {
             // default user is accounts[0]
             signer = signer || (yield this.getDefaultUser());
             // see if it is the receiver closing
             const closerIsReceiver = signer.toLowerCase() === receiver.toLowerCase();
             // get latest thread state --> should wallet pass in?
-            const latestThread = yield this.getThreadByParties(receiver, user);
+            const latestThread = yield this.getThreadByParties(receiver, sender);
             // get channel
-            const previousChannel = yield this.getChannel(user);
+            const previousChannel = yield this.getChannel(sender);
             const prevBN = types_1.channelStateToBN(previousChannel.state);
             const threadBN = types_1.threadStateToBN(latestThread);
             // generate expected balances for channel
@@ -216,10 +216,10 @@ class Connext {
                 expectedTokenBalanceUser = prevBN.balanceTokenHub.add(threadBN.balanceTokenSender);
             }
             // generate new root hash
-            let initialThreadStates = yield this.getInitialThreadStates(user);
-            initialThreadStates = initialThreadStates.filter((threadState) => threadState.user !== user && threadState.receiver !== receiver);
-            const threads = yield this.getThreads(user);
-            const newThreads = threads.filter(threadState => threadState.user !== user && threadState.receiver !== receiver);
+            let initialThreadStates = yield this.getInitialThreadStates(sender);
+            initialThreadStates = initialThreadStates.filter((threadState) => threadState.sender !== sender && threadState.receiver !== receiver);
+            const threads = yield this.getThreads(sender);
+            const newThreads = threads.filter(threadState => threadState.sender !== sender && threadState.receiver !== receiver);
             const newThreadRoot = Utils_1.Utils.generateThreadRootHash(initialThreadStates);
             // generate expected state
             let proposedChannel = {
@@ -406,28 +406,28 @@ class Connext {
             return response.data;
         });
         // return all threads bnetween 2 addresses
-        this.getThreadByParties = (receiver, user) => __awaiter(this, void 0, void 0, function* () {
+        this.getThreadByParties = (receiver, sender) => __awaiter(this, void 0, void 0, function* () {
             // set default user
-            user = user || (yield this.getDefaultUser());
+            sender = sender || (yield this.getDefaultUser());
             // get receiver threads
             const threads = yield this.getThreads(receiver);
-            const thread = threads.find((thread) => thread.user === user);
+            const thread = threads.find((thread) => thread.sender === sender);
             if (!thread) {
-                throw new Error(`No thread found for ${receiver} and ${user}`);
+                throw new Error(`No thread found for ${receiver} and ${sender}`);
             }
             return thread;
         });
-        this.getThreadAtTxCount = (txCount, receiver, user) => __awaiter(this, void 0, void 0, function* () {
+        this.getThreadAtTxCount = (txCount, receiver, sender) => __awaiter(this, void 0, void 0, function* () {
             // set default user
-            user = user || (yield this.getDefaultUser());
+            sender = sender || (yield this.getDefaultUser());
             // get receiver threads
             const threads = yield this.getThreads(receiver);
             if (!threads || threads.length === 0) {
                 throw new Error(`ç`);
             }
-            const thread = threads.find((thread) => thread.user === user && thread.txCount === txCount);
+            const thread = threads.find((thread) => thread.sender === sender && thread.txCount === txCount);
             if (!thread) {
-                throw new Error(`No thread found for ${receiver} and ${user} at txCount ${txCount}`);
+                throw new Error(`No thread found for ${receiver} and ${sender} at txCount ${txCount}`);
             }
             return thread;
         });
