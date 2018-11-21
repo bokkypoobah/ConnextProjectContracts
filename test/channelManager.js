@@ -616,4 +616,45 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('channel closing time must have passed')
     })
   })
+
+  describe('startExitThread', () => {
+    it("happy case", async() => {
+      init.pendingWeiUpdates = [100, 0, 100, 0]
+      init.sigHub = await updateHash(init, hub.privateKey)
+      await userAuthorizedUpdate(init, viewer, 100)
+
+      init.weiBalances = [90, 0]
+      init.pendingWeiUpdates = [0, 0, 0, 0]
+      init.txCount = [2, 2]
+
+      const threadInitialState = {
+          "contractAddress" : channelManager.address,
+          "sender" : viewer.address,
+          "receiver" : performer.address,
+          "threadId" : 1,
+          "balanceWeiSender" : 10,
+          "balanceWeiReceiver" : 0,
+          "balanceTokenSender" : 0,
+          "balanceTokenReceiver" : 0,
+          "txCount" : 0
+      }
+      init.threadRoot = await generateThreadRootHash([threadInitialState])
+      init.proof = await generateThreadProof(threadInitialState, [threadInitialState])
+      init.threadCount = 1
+
+      init.sigHub = await updateHash(init, hub.privateKey)
+      init.sigUser = await updateHash(init, viewer.privateKey)
+
+      await startExitWithUpdate(init, viewer.address)
+      await moveForwardSecs(config.timeout + 1)
+      await channelManager.emptyChannel(viewer.address)
+
+      init.threadId = 1
+      init.weiBalances[10, 0]
+      init.sig = await updateThreadHash(init, viewer.privateKey)
+
+      await startExitThread(init, viewer.address)
+    })
+  })
+
 })
