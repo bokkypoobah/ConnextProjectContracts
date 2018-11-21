@@ -76,9 +76,9 @@ var Utils = /** @class */ (function () {
         return addr;
     };
     Utils.createThreadStateUpdateHash = function (threadState) {
-        var contractAddress = threadState.contractAddress, user = threadState.user, sender = threadState.sender, receiver = threadState.receiver, balanceWeiSender = threadState.balanceWeiSender, balanceWeiReceiver = threadState.balanceWeiReceiver, balanceTokenSender = threadState.balanceTokenSender, balanceTokenReceiver = threadState.balanceTokenReceiver, txCount = threadState.txCount;
+        var contractAddress = threadState.contractAddress, sender = threadState.sender, receiver = threadState.receiver, threadId = threadState.threadId, balanceWeiSender = threadState.balanceWeiSender, balanceWeiReceiver = threadState.balanceWeiReceiver, balanceTokenSender = threadState.balanceTokenSender, balanceTokenReceiver = threadState.balanceTokenReceiver, txCount = threadState.txCount;
         // convert ChannelState to ChannelStateFingerprint
-        var hash = Web3.utils.soliditySha3({ type: 'address', value: contractAddress }, { type: 'address', value: user }, { type: 'address', value: sender }, { type: 'address', value: receiver }, 
+        var hash = Web3.utils.soliditySha3({ type: 'address', value: contractAddress }, { type: 'address', value: sender }, { type: 'address', value: receiver }, { type: 'uint256', value: threadId },
         // @ts-ignore TODO wtf??!
         {
             type: 'uint256',
