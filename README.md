@@ -337,8 +337,6 @@ A thread is opened by reducing the channel balances in the parties' respective c
 
 Threads are closed offchain following the same procedure but in reverse. First, the viewer submits a channel update reintroducing the final thread balances and removing the thread initial state from thread root to the hub. 
 
-//TODO: Check the diagram for close thread consistency. What happens if Alice closes the thread offchain and then Bob disputes it before countersigning the hub's offchain update?
-
 ## ThreadIDs
 
 Threads are keyed using both sender/receiver addresses as well as a threadId.
@@ -356,7 +354,49 @@ All thread state updates must only increase the recipient's balance and must str
 
 [//TODO](//todo) : Additionally, we also require that all initial thread states set the recipient balances to 0. Since recipient balances can only increase, this constrains the number of cases where malformed states can be generated. (//What other problems exist here?)
 
-# Thread Disputes
+# Unilateral Functions
+In the event that channel/thread participants cannot mutually agree on a final state to close the channel/thread with, participants can call the unilateral functions to use the contract as an arbitrator and settle the final state of the channel on chain.
+
+In general, we hope and expect that most actual disputes will be resolved offchain. Hubs have an incentive to provide good customer service to retain users and users have an incentive to minimize the cost and time of retreiving funds. Having the _option_ to dispute onchain, however, is what makes this system trust-minimized.
+
+(Ironically, the better our dispute mechanisms and incentives are, the less likely they are to ever be used).
+
+## Channel Disputes
+Channel disputes occur between the Hub and a user. The channel dispute process consists of initiating the channel dispute timer with a double-signed state, allowing the counterparty to challenge if a newer state is available, and then finalizing the latest state onchain/distributing funds. Unilateral functions are called in the following order:
+1. a. `startExit` begins the channel dispute timer using the latest recorded onchain state; OR
+   b. `startExitWithUpdate` begins the channel dispute timer while also submitting a new state update.
+2. a. `emptyChannelWithChallenge` (which can only be called by the party that did _not_ initiate the dispute) challenges the channel with a newer state and, if the state is valid, empties the channel. Note that this can happen before the dispute timer expires.
+   b. `emptyChannel` (called by any party after the dispute timer expires) empties the channel with the latest available onchain state.
+
+Note that channel disputes are always a two step process. 
+
+The longest time to dispute occurs if a counterparty is unresponsive during the dispute. In that case, the dispute initiator calls `startExit` or `startExitWithUpdate` (depending on whether or not they have an offchain state that is better for them than the latest onchain state) and then calls `emptyChannel` after the timer expires.
+
+The shortest time to dispute occurs if a dispute is initiated by a party (assuming they submitted their most favorable state onchain) and then the counterparty calls `emptyChannelWithChallenge` immediately afterwards with a more recent state that is in their favor. Since the dispute initiator is unable to challenge further, they are incentivized to not attempt a replay attack and just submit the most recent favorable state that they can. This also stops spam.
+
+The reader may note that initiating a dispute with the _actual_ latest state (i.e. a state that both parties agree and _have_ to finalize on) also has a long dispute time. While this may seem counterintuitive, we believe this to be acceptable since, if both parties truly agreed that this is the latest available state, then they should have been able to withdraw funds from the channel without needing to resort to a unilateral process.
+
+## Thread Disputes
+Because threads are unidirectional, we expect the likelihood of unavailability-related disputes for threads to be very low. This is good because, in the current construction, it is impossible to dispute a thread onchain without first going through the full channel dispute process:
+
+A part of the state update packet that is passed back and forth in a channel is the current thread root hash. This hash contains the merkel root of all of the initial states of all currently open threads, used to _prove_ that a thread exists when initiating a thread dispute. This means that, in order to dispute a thread, the channel's state first has to be finalized onchain which puts the channel into the `ThreadDispute` status. We also keep track of a `threadCount` variable in channel state which is decremented on thread disputes so that, when it reaches 0, we can set the channel's status back to `Open`.
+
+Like with channels, threads have a dispute timer within which their state must be settled onchain. The additional complexity of threads comes from the fact that threads need to be disputed _atomically_, i.e. that if a thread between Alice-Bob is disputed/settled in Alice's channel with the Hub, then it must be settled in Bob's channel with the Hub as well.
+
+Thread dispute functions look much like the channel dispute ones:
+1. a. `startExitThread` takes in a thread's initial state, checks that it's part of the caller's channel's thread root and then starts the thread's dispute timer.
+   b. `startExitThreadWithUpdate` does the same as the above, but also takes in, validates, and saves a thread update.
+2. `challengeThread` (called by the sender, receiver, or hub) takes a challenging update, validates it and then saves it onchain.
+3. `emptyThread` empties the thread in caller's channel and decrements `threadCount`. Note that this function is called twice per thread since a thread is composed of two channels. The `emptied[]` boolean ensures that the thread cannot be emptied into the same channel twice.
+
+The only upper limit on how long it can take for threads to be disputed is a potential `nukeThreads` call. However, since any party to the thread can initiate and settle a dispute on a thread, we expect that _some_ party will always have the incentive to do so as quickly as possible because they will have funds owed to them.
+
+## NukeThreads
+There remains a possibility that _some_ threads remain undisputed, either because their contained balance was too low to be worth disputing or because the counterparty to the channel was completely unavailable (we assume that ths is always the user since hubs would auto-respond to disputes).
+
+If this occurs, it is possible for a channel to be stuck in the `ThreadDispute` status forever. And since we key channels by user address, this would effectively lock out that user from interacting with a given hub. The `nukeThreads` function counters these types of cases by hard resetting the channel to the open state and emptying any remaining funds in the channel to the user.
+
+Why not give them to the hub? We assume that the hub will already have disputed any channel/thread where they have funds owed to them since they are automated actors.
 
 # Data Structures
 
