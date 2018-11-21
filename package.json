@@ -13,6 +13,7 @@
     "generate": "node_modules/.bin/typechain --target=web3-1.0.0 --outDir ./build/ts/ './build/contracts/*.json'",
     "migrate": "node_modules/.bin/truffle migrate",
     "prepare": "npm run build",
+    "test:debug": "node --inspect-brk ./node_modules/truffle/build/cli.bundled.js test test/channelManager.js --network=ganache",
     "test": "node_modules/.bin/truffle test test/channelManager.js --network=ganache"
   },
   "repository": {
