@@ -178,9 +178,9 @@ async function startExitThread(data, user) {
     data.user,
     data.sender,
     data.receiver,
+    data.threadId,
     data.weiBalances,
     data.tokenBalances,
-    data.txCount,
     data.proof,
     data.sig,
     {from: user}
@@ -191,9 +191,9 @@ async function startExitThreadWithUpdate(data, user) {
     await channelManager.startExitThreadWithUpdate(
         data.user,
         [data.sender, data.receiver],
+        data.threadId,
         data.weiBalances,
         data.tokenBalances,
-        data.txCount,
         data.proof,
         data.sig,
         data.updatedWeiBalances,
@@ -203,30 +203,40 @@ async function startExitThreadWithUpdate(data, user) {
         {from: user}
     )
 }
-// TODO
-// async function challengeThread(data, user) {
-//     await channelManager.challengeThread(
-//         data.user,
-//         data.sender,
-//         data.receiver,
-//         data.weiBalances,
-//         data.tokenBalances,
-//         data.txCount,
-//         data.sig,
-//         {from:user}
-//     )
-// }
 
-// async function emptyThread(data) {
-//     await channelManager.emptyThread(
-//         data.user,
-//         data.sender,
-//         data.receiver
-//     )
-// }
+async function challengeThread(data, user) {
+    await channelManager.challengeThread(
+        data.sender,
+        data.receiver,
+        data.threadId,
+        data.weiBalances,
+        data.tokenBalances,
+        data.txCount,
+        data.sig,
+        {from: user}
+    )
+}
 
-// async function nukeThreads(user) {
-// }
+async function emptyThread(data) {
+    await channelManager.emptyThread(
+        data.user,
+        data.sender,
+        data.receiver,
+        data.threadId,
+        data.weiBalances,
+        data.tokenBalances,
+        data.proof,
+        data.sig,
+        {from: user}
+    )
+}
+
+async function nukeThreads(data, user) {
+    await channelManager.nukeThreads(
+        data.user,
+        {from: user}
+    )
+}
 
 // Funds contract with eth and tokens
 async function fundContract(eth, tokens) {
