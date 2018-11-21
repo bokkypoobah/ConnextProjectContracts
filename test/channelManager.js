@@ -300,6 +300,7 @@ contract("ChannelManager", accounts => {
       "sender": viewer.address,
       "receiver": performer.address,
       "recipient": performer.address,
+      "threadId": 1,
       "weiBalances": [0, 0],
       "tokenBalances": [0, 0],
       "pendingWeiUpdates": [0, 0, 0, 0],
