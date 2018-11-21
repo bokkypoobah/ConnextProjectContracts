@@ -72,15 +72,15 @@ sig) => {
     return addr;
 };
 Utils.createThreadStateUpdateHash = (threadState) => {
-    const { contractAddress, user, sender, receiver, balanceWeiSender, balanceWeiReceiver, balanceTokenSender, balanceTokenReceiver, txCount, } = threadState;
+    const { contractAddress, sender, receiver, threadId, balanceWeiSender, balanceWeiReceiver, balanceTokenSender, balanceTokenReceiver, txCount, } = threadState;
     // convert ChannelState to ChannelStateFingerprint
-    const hash = Web3.utils.soliditySha3({ type: 'address', value: contractAddress }, { type: 'address', value: user }, { type: 'address', value: sender }, { type: 'address', value: receiver }, 
+    const hash = Web3.utils.soliditySha3({ type: 'address', value: contractAddress }, { type: 'address', value: sender }, { type: 'address', value: receiver }, { type: 'uint256', value: threadId }, 
     // @ts-ignore TODO wtf??!
     {
-        type: 'uint256',
+        type: 'uint256[2]',
         value: [balanceWeiSender, balanceWeiReceiver],
     }, {
-        type: 'uint256',
+        type: 'uint256[2]',
         value: [balanceTokenSender, balanceTokenReceiver],
     }, { type: 'uint256', value: txCount });
     return hash;

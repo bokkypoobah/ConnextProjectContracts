@@ -225,19 +225,20 @@ export class Connext {
   openThread = async (
     receiver: Address,
     balance: Balances,
-    user?: Address,
+    threadId: string,
+    sender?: Address,
   ): Promise<ChannelStateUpdate> => {
     // hits hub unless dispute
     // default user is accounts[0]
-    user = user || (await this.getDefaultUser())
+    sender = sender || (await this.getDefaultUser())
     // get channel
-    const prevChannel = await this.getChannel(user)
+    const prevChannel = await this.getChannel(sender)
     // create initial thread state
     const threadState = {
       contractAddress: prevChannel.state.contractAddress,
-      user,
-      sender: user, // should this be hub?
+      sender, // should this be hub?
       receiver,
+      threadId,
       balanceWeiReceiver: '0',
       balanceTokenReceiver: '0',
       balanceWeiSender: balance.balanceWei,
@@ -254,7 +255,7 @@ export class Connext {
     const expectedWeiUser = prevBN.balanceWeiUser.sub(balBN.balanceWei)
     const expectedTokenUser = prevBN.balanceWeiUser.sub(balBN.balanceToken)
     // regenerate thread root on open
-    let initialThreadStates = await this.getInitialThreadStates(user)
+    let initialThreadStates = await this.getInitialThreadStates(sender)
     initialThreadStates.push(threadState)
     const newThreadRoot = Utils.generateThreadRootHash(initialThreadStates)
 
@@ -295,7 +296,7 @@ export class Connext {
   // TO DO: fix for performer closing thread
   closeThread = async (
     receiver: Address,
-    user: Address,
+    sender: Address,
     signer?: Address, // for testing
   ): Promise<ChannelStateUpdate> => {
     // default user is accounts[0]
@@ -303,9 +304,9 @@ export class Connext {
     // see if it is the receiver closing
     const closerIsReceiver = signer.toLowerCase() === receiver.toLowerCase()
     // get latest thread state --> should wallet pass in?
-    const latestThread = await this.getThreadByParties(receiver, user)
+    const latestThread = await this.getThreadByParties(receiver, sender)
     // get channel
-    const previousChannel = await this.getChannel(user)
+    const previousChannel = await this.getChannel(sender)
     const prevBN = channelStateToBN(previousChannel.state)
     const threadBN = threadStateToBN(latestThread)
     // generate expected balances for channel
@@ -342,15 +343,15 @@ export class Connext {
     }
 
     // generate new root hash
-    let initialThreadStates = await this.getInitialThreadStates(user)
+    let initialThreadStates = await this.getInitialThreadStates(sender)
     initialThreadStates = initialThreadStates.filter(
       (threadState: ThreadState) =>
-        threadState.user !== user && threadState.receiver !== receiver,
+        threadState.sender !== sender && threadState.receiver !== receiver,
     )
-    const threads = await this.getThreads(user)
+    const threads = await this.getThreads(sender)
     const newThreads = threads.filter(
       threadState =>
-        threadState.user !== user && threadState.receiver !== receiver,
+        threadState.sender !== sender && threadState.receiver !== receiver,
     )
     const newThreadRoot = Utils.generateThreadRootHash(initialThreadStates)
     // generate expected state
@@ -601,15 +602,15 @@ export class Connext {
   // return all threads bnetween 2 addresses
   getThreadByParties = async (
     receiver: Address,
-    user?: Address,
+    sender?: Address,
   ): Promise<ThreadState> => {
     // set default user
-    user = user || (await this.getDefaultUser())
+    sender = sender || (await this.getDefaultUser())
     // get receiver threads
     const threads = await this.getThreads(receiver)
-    const thread = threads.find((thread: ThreadState) => thread.user === user)
+    const thread = threads.find((thread: ThreadState) => thread.sender === sender)
     if (!thread) {
-      throw new Error(`No thread found for ${receiver} and ${user}`)
+      throw new Error(`No thread found for ${receiver} and ${sender}`)
     }
     return thread
   }
@@ -617,10 +618,10 @@ export class Connext {
   getThreadAtTxCount = async (
     txCount: number,
     receiver: Address,
-    user?: Address,
+    sender?: Address,
   ): Promise<ThreadState> => {
     // set default user
-    user = user || (await this.getDefaultUser())
+    sender = sender || (await this.getDefaultUser())
     // get receiver threads
     const threads = await this.getThreads(receiver)
     if (!threads || threads.length === 0) {
@@ -628,11 +629,11 @@ export class Connext {
     }
     const thread = threads.find(
       (thread: ThreadState) =>
-        thread.user === user && thread.txCount === txCount,
+        thread.sender === sender && thread.txCount === txCount,
     )
     if (!thread) {
       throw new Error(
-        `No thread found for ${receiver} and ${user} at txCount ${txCount}`,
+        `No thread found for ${receiver} and ${sender} at txCount ${txCount}`,
       )
     }
     return thread
