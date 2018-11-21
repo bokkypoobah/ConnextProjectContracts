@@ -95,9 +95,9 @@ async function updateHash(data, privateKey) {
 async function updateThreadHash(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     channelManager.address,
-    {type: 'address', value: data.user},
     {type: 'address', value: data.sender},
     {type: 'address', value: data.receiver},
+    {type: 'uint256', value: data.threadId},
     {type: 'uint256[2]', value: data.weiBalances},
     {type: 'uint256[2]', value: data.tokenBalances},
     {type: 'uint256', value: data.txCount}
@@ -311,9 +311,9 @@ contract("ChannelManager", accounts => {
       "timeout": 0,
       "proof": await generateThreadRootHash([{
         "contractAddress": channelManager.address,
-        "user": viewer.address,
         "sender": hub.address,
         "receiver": performer.address,
+        "threadId" : 1,
         "balanceWeiSender": 0,
         "balanceWeiReceiver": 0,
         "balanceTokenSender": 0,
