@@ -255,7 +255,7 @@ async function fundContract(eth, tokens) {
 // NOTE : ganache-cli -m 'refuse result toy bunker royal small story exhaust know piano base stand'
 // NOTE : hub : accounts[0], privKeys[0]
 let channelManager, tokenAddress, challengePeriod
-let hub, performer, viewer, initChannel, initThread
+let hub, performer, viewer, initChannel, init
 
 contract("ChannelManager", accounts => {
   let snapshotId
@@ -294,7 +294,7 @@ contract("ChannelManager", accounts => {
       "threadCount": 0,
       "timeout": 0
     }
-    initThread = {
+    init = {
       "hub": hub.address,
       "user": viewer.address,
       "sender": viewer.address,
