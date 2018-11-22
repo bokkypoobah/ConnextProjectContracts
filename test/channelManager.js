@@ -671,23 +671,40 @@ contract("ChannelManager", accounts => {
     })
   })
 
+  async function ffStartedExitThreadWithUpdate() {
+    // fast-forward channel to thread dispute state
+    await ffThreadDispute()
+
+    // prepare initial thread state
+    initThread.weiBalances = [10, 0]
+    initThread.proof = initChannel.proof
+    initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+    // prepare updated thread state ...
+    initThread.updatedWeiBalances = [7, 3]
+    initThread.updatedTxCount = 1
+    initThread.updateSig = await signUpdatedThreadState(initThread, viewer.privateKey)
+
+    // ... and start exit with that
+    await startExitThreadWithUpdate(initThread, viewer.address)
+  }
+
   describe('startExitThreadWithUpdate', () => {
     it("happy case", async() => {
-      // fast-forward channel to thread dispute state
-      await ffThreadDispute()
+      await ffStartedExitThreadWithUpdate()
+    })
+  })
 
-      // prepare initial thread state
-      initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
+  describe('challengeThread', () => {
+    it("happy case", async() => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      // performer challenges with more recent thread state
+      initThread.weiBalances = [2, 8]
+      initThread.txCount = 2
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
-
-      // prepare updated thread state ...
-      initThread.updatedWeiBalances = [7, 3]
-      initThread.updatedTxCount = 1
-      initThread.updateSig = await signUpdatedThreadState(initThread, viewer.privateKey)
-
-      // ... and start exit with that
-      await startExitThreadWithUpdate(initThread, viewer.address)
+      await challengeThread(initThread, performer.address)
     })
   })
 })
