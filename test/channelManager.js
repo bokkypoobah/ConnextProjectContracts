@@ -745,4 +745,17 @@ contract("ChannelManager", accounts => {
       await emptyThread(initThread, performer.address)
     })
   })
+
+  describe('nukeThreads', () => {
+    it("happy case", async() => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // wait until we can nuke
+      await moveForwardSecs(10 * config.timeout + 1)
+
+      // nuke
+      await nukeThreads(initThread, performer.address)
+    })
+  })
 })
