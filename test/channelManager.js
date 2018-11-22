@@ -255,7 +255,7 @@ async function fundContract(eth, tokens) {
 // NOTE : ganache-cli -m 'refuse result toy bunker royal small story exhaust know piano base stand'
 // NOTE : hub : accounts[0], privKeys[0]
 let channelManager, tokenAddress, challengePeriod
-let hub, performer, viewer, initChannel, init
+let hub, performer, viewer, initChannel, initThread
 
 contract("ChannelManager", accounts => {
   let snapshotId
@@ -294,21 +294,22 @@ contract("ChannelManager", accounts => {
       "threadCount": 0,
       "timeout": 0
     }
-    init = {
-      "hub": hub.address,
+    initThread = {
+      //"hub": hub.address,
       "user": viewer.address,
       "sender": viewer.address,
       "receiver": performer.address,
-      "recipient": performer.address,
+      //"recipient": performer.address,
       "threadId": 1,
       "weiBalances": [0, 0],
       "tokenBalances": [0, 0],
-      "pendingWeiUpdates": [0, 0, 0, 0],
-      "pendingTokenUpdates": [0, 0, 0, 0],
-      "txCount": [1, 1],
-      "threadRoot": emptyRootHash,
-      "threadCount": 0,
-      "timeout": 0,
+      //"pendingWeiUpdates": [0, 0, 0, 0],
+      //"pendingTokenUpdates": [0, 0, 0, 0],
+      //"txCount": [1, 1],
+      "txCount": 0,
+      //"threadRoot": emptyRootHash,
+      //"threadCount": 0,
+      //"timeout": 0,
       "proof": await generateThreadRootHash([{
         "contractAddress": channelManager.address,
         "sender": hub.address,
@@ -619,13 +620,16 @@ contract("ChannelManager", accounts => {
 
   describe('startExitThread', () => {
     it("happy case", async() => {
-      init.pendingWeiUpdates = [100, 0, 100, 0]
-      init.sigHub = await updateHash(init, hub.privateKey)
-      await userAuthorizedUpdate(init, viewer, 100)
+      // get some wei into the channel
+      initChannel.user = viewer.address
+      initChannel.pendingWeiUpdates = [100, 0, 100, 0]
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      await userAuthorizedUpdate(initChannel, viewer, 100)
 
-      init.weiBalances = [90, 0]
-      init.pendingWeiUpdates = [0, 0, 0, 0]
-      init.txCount = [2, 2]
+      // prepare channel update that contains thread ...
+      initChannel.weiBalances = [90, 0]
+      initChannel.pendingWeiUpdates = [0, 0, 0, 0]
+      initChannel.txCount = [2, 2]
 
       const threadInitialState = {
           "contractAddress": channelManager.address,
@@ -638,23 +642,28 @@ contract("ChannelManager", accounts => {
           "balanceTokenReceiver": 0,
           "txCount": 0
       }
-      init.threadRoot = await generateThreadRootHash([threadInitialState])
-      init.proof = await generateThreadProof(threadInitialState, [threadInitialState])
-      init.threadCount = 1
+      initChannel.threadRoot = await generateThreadRootHash([threadInitialState])
+      initChannel.proof = await generateThreadProof(threadInitialState, [threadInitialState])
+      initChannel.threadCount = 1
 
-      init.sigHub = await updateHash(init, hub.privateKey)
-      init.sigUser = await updateHash(init, viewer.privateKey)
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
 
-      await startExitWithUpdate(init, viewer.address)
+      // ... and exit with that
+      await startExitWithUpdate(initChannel, viewer.address)
+
+      // empty channel
       await moveForwardSecs(config.timeout + 1)
       await channelManager.emptyChannel(viewer.address)
 
-      init.threadId = 1
-      init.weiBalances = [10, 0]
-      init.txCount = 0
-      init.sig = await updateThreadHash(init, viewer.privateKey)
+      // start thread dispute with initial state
+      initThread.threadId = 1
+      initThread.weiBalances = [10, 0]
+      initThread.txCount = 0
+      initThread.proof = initChannel.proof
+      initThread.sig = await updateThreadHash(initThread, viewer.privateKey)
 
-      await startExitThread(init, viewer.address)
+      await startExitThread(initThread, viewer.address)
     })
   })
 
