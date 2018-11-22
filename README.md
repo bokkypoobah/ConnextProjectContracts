@@ -957,11 +957,12 @@ Initializes the thread onchain to prep it for dispute (called when no newer stat
 
 1. Verifies that the channel is in the `ThreadDispute` state.
 2. Verifies that it is being called by either the hub or the user.
-3. Verifies that the provided `user` is either the sender or the receiver in the channel
-4. Verifies that the thread dispute timer is 0 (i.e. that the thread with that threadID is not already in dispute)
-5. Verifies the signature that is submitted to ensure that it belongs to the sender and verifies that the initial state of this thread is contained in the recorded `threadRoot` using `_verifyThread.`
-6. Updates the thread state onchain and stars the `threadClosingTime` timer.
-7. Emits the `DidStartExitThread` event.
+3. Verifies that the provided `user` is either the sender or the receiver in the channel.
+4. Verifies that the initial receiver balances are zero.
+5. Verifies that the thread dispute timer is 0 (i.e. that the thread with that threadID is not already in dispute).
+6. Verifies the signature that is submitted to ensure that it belongs to the sender and verifies that the initial state of this thread is contained in the recorded `threadRoot` using `_verifyThread.`
+7. Updates the thread state onchain and starts the `threadClosingTime` timer.
+8. Emits the `DidStartExitThread` event.
 ```
 function startExitThread(
     address user,
@@ -978,12 +979,13 @@ function startExitThread(
     require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
     require(user == sender || user == receiver, "user must be thread sender or receiver");
 
+    require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
+
     Thread storage thread = threads[sender][receiver][threadId];
 
     require(thread.threadClosingTime == 0, "thread closing time must be zero");
 
-    //explicitly set txCount and recipient balances to zero
-    _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+    _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
     thread.weiBalances = weiBalances;
     thread.tokenBalances = tokenBalances;
@@ -1007,14 +1009,16 @@ Initializes thread state onchain and immediately updates it. This is called when
 
 1. Verifies that the channel is in the `ThreadDispute` status.
 2. Verifies that the message sender is either the hub or the user.
-3. Verifies that the provided `user` is either the sender or receiver in the thread. Then verifies that the thread timer is zero.
-4. Verifies the thread using the `_verifyThread` method: recreates the signature and recovers signer, then checks that the initial state is part of the `threadRoot`.
-5. Verifies that the transaction count for the updated state is greater than 0 (`txCount` of initial state).
-6. Verifies that the total wei and token balances must be equal to the previously recorded total wei and token balances (i.e. value is conserved).
-7. Verifies that the update only *increases* the value of the receiver and strictly requires that either wei or token balance increases. This is because threads are *unidirectional*: value can only move from sender→receiver. Doing this removes the need for a signature from the receiver.
-8. Verifies that the signature of the updated thread state using the `_verifyThread` method. Note that the `threadRoot` is set to `bytes32(0x0)`because a merkle proof is not needed for the not-initial state.
-9. Updates the thread state onchain and starts the thread dispute timer.
-10. Emits the `DidStartExitThread` event.
+3. Verifies that the provided `user` is either the sender or receiver in the thread.
+4. Verifies that the initial receiver balances are zero.
+5. Verifies that the thread timer is zero.
+6. Verifies the thread using the `_verifyThread` method: recreates the signature and recovers signer, then checks that the initial state is part of the `threadRoot`.
+7. Verifies that the transaction count for the updated state is greater than 0 (`txCount` of initial state).
+8. Verifies that the total wei and token balances must be equal to the previously recorded total wei and token balances (i.e. value is conserved).
+9. Verifies that the update only *increases* the value of the receiver and strictly requires that either wei or token balance increases. This is because threads are *unidirectional*: value can only move from sender→receiver. Doing this removes the need for a signature from the receiver.
+10. Verifies that the signature of the updated thread state using the `_verifyThread` method. Note that the `threadRoot` is set to `bytes32(0x0)`because a merkle proof is not needed for the not-initial state.
+11. Updates the thread state onchain and starts the thread dispute timer.
+12. Emits the `DidStartExitThread` event.
 ```
 function startExitThreadWithUpdate(
     address user,
@@ -1034,11 +1038,12 @@ function startExitThreadWithUpdate(
     require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
     require(user == threadMembers[0] || user == threadMembers[1], "user must be thread sender or receiver");
 
+    require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
+
     Thread storage thread = threads[threadMembers[0]][threadMembers[1]][threadId];
     require(thread.threadClosingTime == 0, "thread closing time must be zero");
 
-    //explicitly set txCount and recipient balances to zero
-    _verifyThread(threadMembers[0], threadMembers[1], threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+    _verifyThread(threadMembers[0], threadMembers[1], threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
     // *********************
     // PROCESS THREAD UPDATE
@@ -1137,14 +1142,17 @@ function challengeThread(
 Called by any party when the thread dispute timer expires. Uses the latest available onchain state to transfer values. Corollary is `emptyChannel`. Note: this can be called twice per thread; once for each channel.
 
 1. Verifies that the channel state is in `ThreadDispute`.
-2. Verifies that the thread dispute timer has expired and that the caller of the function is either the hub, sender or receiver.
-3. Verifies that the thread has not already been emptied before for the caller's channel.
-4. Verifies the initial state of the thread and checks that it's a part of the user's channel. This is primarily done in case an already settled thread is being emptied by the thread counterparty.
-5. Verifies that balances are concerved and that receiver balances only ever increase.
-6. Deducts the onchain thread balances from the onchain channel balances for the provided user's channel.
-7. Deducts the onchain thread balances from the global total onchain channel balances (i.e. moves balances back into the hub's reserve) and then transfers onchain thread balances to their respective owners. Note: state is not zeroed out here in order to allow for the other party to call `emptyThread` if needed.
-8. Records that the thread has been emptied for this user's channel which stops reentry of this function.
-9. Decrements the thread count and if the thread count is zero, reopens the channel, reinitializes `threadRoot`, and resets dispute fields.
+2. Verifies that the caller of the function is either the hub or the user.
+3. Verifies that the provided `user` is either the sender or receiver in the thread.
+4. Verifies that the initial receiver balances are zero.
+5. Verifies that the thread dispute timer has expired
+6. Verifies that the thread has not already been emptied before for the caller's channel.
+7. Verifies the initial state of the thread and checks that it's a part of the user's channel. This is primarily done in case an already settled thread is being emptied by the thread counterparty.
+8. Verifies that balances are concerved and that receiver balances only ever increase.
+9. Deducts the onchain thread balances from the onchain channel balances for the provided user's channel.
+10. Deducts the onchain thread balances from the global total onchain channel balances (i.e. moves balances back into the hub's reserve) and then transfers onchain thread balances to their respective owners. Note: state is not zeroed out here in order to allow for the other party to call `emptyThread` if needed.
+11. Records that the thread has been emptied for this user's channel which stops reentry of this function.
+12. Decrements the thread count and if the thread count is zero, reopens the channel, reinitializes `threadRoot`, and resets dispute fields.
 ```
 function emptyThread(
     address user,
@@ -1161,6 +1169,8 @@ function emptyThread(
     require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
     require(user == sender || user == receiver, "user must be thread sender or receiver");
 
+    require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
+
     Thread storage thread = threads[sender][receiver][threadId];
 
     // We check to make sure that the thread state has been finalized
@@ -1169,8 +1179,8 @@ function emptyThread(
     // Make sure user has not emptied before
     require(!thread.emptied[user == sender ? 0 : 1], "user cannot empty twice");
 
-    // verify initial thread state. Explicitly set txCount and recipient balances to 0
-    _verifyThread(sender, receiver, threadId, [weiBalances[0], 0], [tokenBalances[0], 0], 0, proof, sig, channel.threadRoot);
+    // verify initial thread state.
+    _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
     require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
     require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
