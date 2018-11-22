@@ -231,7 +231,7 @@ async function challengeThread(data, user) {
     )
 }
 
-async function emptyThread(data) {
+async function emptyThread(data, user) {
     await channelManager.emptyThread(
         data.user,
         data.sender,
@@ -624,7 +624,7 @@ contract("ChannelManager", accounts => {
     await userAuthorizedUpdate(initChannel, viewer, 100)
 
     // prepare channel update that contains thread ...
-    initChannel.weiBalances = [90, 0]
+    initChannel.weiBalances = [100, 90]
     initChannel.pendingWeiUpdates = [0, 0, 0, 0]
     initChannel.txCount = [2, 2]
 
@@ -705,6 +705,44 @@ contract("ChannelManager", accounts => {
       initThread.txCount = 2
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
       await challengeThread(initThread, performer.address)
+    })
+  })
+
+  describe('emptyThread', () => {
+    it("happy case", async() => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      // prepare performer channel for emptyThread
+      initChannel.user = performer.address
+      initChannel.weiBalances = [0, 0]
+      initChannel.pendingWeiUpdates = [200, 0, 50, 0]
+      initChannel.txCount = [1, 1]
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      await userAuthorizedUpdate(initChannel, performer, 50)
+      initChannel.weiBalances = [190, 50]
+      initChannel.pendingWeiUpdates = [0, 0, 0, 0]
+      initChannel.txCount = [2, 2]
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      await startExitWithUpdate(initChannel, performer.address)
+      await moveForwardSecs(config.timeout + 1)
+      await channelManager.emptyChannel(performer.address)
+
+      // wait until we can empty
+      await moveForwardSecs(config.timeout + 1)
+
+      // prepare initial thread state
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      // viewer empties
+      await emptyThread(initThread, viewer.address)
+
+      // performer empties
+      initThread.user = performer.address
+      await emptyThread(initThread, performer.address)
     })
   })
 })
