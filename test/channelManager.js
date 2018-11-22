@@ -92,7 +92,7 @@ async function updateHash(data, privateKey) {
   return sig.signature
 }
 
-async function updateThreadHash(data, privateKey) {
+async function signThreadState(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     {type: "address", value: channelManager.address},
     {type: 'address', value: data.sender},
@@ -101,6 +101,20 @@ async function updateThreadHash(data, privateKey) {
     {type: 'uint256[2]', value: data.weiBalances},
     {type: 'uint256[2]', value: data.tokenBalances},
     {type: 'uint256', value: data.txCount}
+  )
+  const sig = await web3.eth.accounts.sign(hash, privateKey)
+  return sig.signature
+}
+
+async function signUpdatedThreadState(data, privateKey) {
+  const hash = await web3.utils.soliditySha3(
+    {type: "address", value: channelManager.address},
+    {type: 'address', value: data.sender},
+    {type: 'address', value: data.receiver},
+    {type: 'uint256', value: data.threadId},
+    {type: 'uint256[2]', value: data.updatedWeiBalances},
+    {type: 'uint256[2]', value: data.updatedTokenBalances},
+    {type: 'uint256', value: data.updatedTxCount}
   )
   const sig = await web3.eth.accounts.sign(hash, privateKey)
   return sig.signature
@@ -295,32 +309,16 @@ contract("ChannelManager", accounts => {
       "timeout": 0
     }
     initThread = {
-      //"hub": hub.address,
       "user": viewer.address,
       "sender": viewer.address,
       "receiver": performer.address,
-      //"recipient": performer.address,
       "threadId": 1,
       "weiBalances": [0, 0],
       "tokenBalances": [0, 0],
-      //"pendingWeiUpdates": [0, 0, 0, 0],
-      //"pendingTokenUpdates": [0, 0, 0, 0],
-      //"txCount": [1, 1],
       "txCount": 0,
-      //"threadRoot": emptyRootHash,
-      //"threadCount": 0,
-      //"timeout": 0,
-      "proof": await generateThreadRootHash([{
-        "contractAddress": channelManager.address,
-        "sender": hub.address,
-        "receiver": performer.address,
-        "threadId": 1,
-        "balanceWeiSender": 0,
-        "balanceWeiReceiver": 0,
-        "balanceTokenSender": 0,
-        "balanceTokenReceiver": 0,
-        "txCount": 2
-      }])
+      "updatedWeiBalances": [0, 0],
+      "updatedTokenBalances": [0, 0],
+      "updatedTxCount": 0
     }
   })
 
@@ -618,53 +616,78 @@ contract("ChannelManager", accounts => {
     })
   })
 
+  async function ffThreadDispute() {
+    // get some wei into the channel
+    initChannel.user = viewer.address
+    initChannel.pendingWeiUpdates = [100, 0, 100, 0]
+    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+    await userAuthorizedUpdate(initChannel, viewer, 100)
+
+    // prepare channel update that contains thread ...
+    initChannel.weiBalances = [90, 0]
+    initChannel.pendingWeiUpdates = [0, 0, 0, 0]
+    initChannel.txCount = [2, 2]
+
+    const threadInitialState = {
+      "contractAddress": channelManager.address,
+      "sender": viewer.address,
+      "receiver": performer.address,
+      "threadId": 1,
+      "balanceWeiSender": 10,
+      "balanceWeiReceiver": 0,
+      "balanceTokenSender": 0,
+      "balanceTokenReceiver": 0,
+      "txCount": 0
+    }
+    initChannel.threadRoot = await generateThreadRootHash([threadInitialState])
+    initChannel.proof = await generateThreadProof(threadInitialState, [threadInitialState])
+    initChannel.threadCount = 1
+
+    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+    initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
+
+    // ... and start exit with that
+    await startExitWithUpdate(initChannel, viewer.address)
+
+    // wait ...
+    await moveForwardSecs(config.timeout + 1)
+
+    // ... and empty channel
+    await channelManager.emptyChannel(viewer.address)
+  }
+
   describe('startExitThread', () => {
     it("happy case", async() => {
-      // get some wei into the channel
-      initChannel.user = viewer.address
-      initChannel.pendingWeiUpdates = [100, 0, 100, 0]
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      await userAuthorizedUpdate(initChannel, viewer, 100)
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
 
-      // prepare channel update that contains thread ...
-      initChannel.weiBalances = [90, 0]
-      initChannel.pendingWeiUpdates = [0, 0, 0, 0]
-      initChannel.txCount = [2, 2]
-
-      const threadInitialState = {
-          "contractAddress": channelManager.address,
-          "sender": viewer.address,
-          "receiver": performer.address,
-          "threadId": 1,
-          "balanceWeiSender": 10,
-          "balanceWeiReceiver": 0,
-          "balanceTokenSender": 0,
-          "balanceTokenReceiver": 0,
-          "txCount": 0
-      }
-      initChannel.threadRoot = await generateThreadRootHash([threadInitialState])
-      initChannel.proof = await generateThreadProof(threadInitialState, [threadInitialState])
-      initChannel.threadCount = 1
-
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
-
-      // ... and exit with that
-      await startExitWithUpdate(initChannel, viewer.address)
-
-      // empty channel
-      await moveForwardSecs(config.timeout + 1)
-      await channelManager.emptyChannel(viewer.address)
-
-      // start thread dispute with initial state
-      initThread.threadId = 1
+      // prepare initial thread state ...
       initThread.weiBalances = [10, 0]
-      initThread.txCount = 0
       initThread.proof = initChannel.proof
-      initThread.sig = await updateThreadHash(initThread, viewer.privateKey)
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
+      // ... and start exit with that
       await startExitThread(initThread, viewer.address)
     })
   })
 
+  describe('startExitThreadWithUpdate', () => {
+    it("happy case", async() => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // prepare initial thread state
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      // prepare updated thread state ...
+      initThread.updatedWeiBalances = [7, 3]
+      initThread.updatedTxCount = 1
+      initThread.updateSig = await signUpdatedThreadState(initThread, viewer.privateKey)
+
+      // ... and start exit with that
+      await startExitThreadWithUpdate(initThread, viewer.address)
+    })
+  })
 })
