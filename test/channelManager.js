@@ -344,6 +344,64 @@ contract("ChannelManager", accounts => {
     await restore(snapshotId)
   })
 
+  async function ffThreadDispute() {
+    // get some wei into the channel
+    initChannel.user = viewer.address
+    initChannel.pendingWeiUpdates = [100, 0, 100, 0]
+    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+    await userAuthorizedUpdate(initChannel, viewer, 100)
+
+    // prepare channel update that contains thread ...
+    initChannel.weiBalances = [100, 90]
+    initChannel.pendingWeiUpdates = [0, 0, 0, 0]
+    initChannel.txCount = [2, 2]
+
+    const threadInitialState = {
+      "contractAddress": channelManager.address,
+      "sender": viewer.address,
+      "receiver": performer.address,
+      "threadId": 1,
+      "balanceWeiSender": 10,
+      "balanceWeiReceiver": 0,
+      "balanceTokenSender": 0,
+      "balanceTokenReceiver": 0,
+      "txCount": 0
+    }
+    initChannel.threadRoot = await generateThreadRootHash([threadInitialState])
+    initChannel.proof = await generateThreadProof(threadInitialState, [threadInitialState])
+    initChannel.threadCount = 1
+
+    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+    initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
+
+    // ... and start exit with that
+    await startExitWithUpdate(initChannel, viewer.address)
+
+    // wait ...
+    await moveForwardSecs(config.timeout + 1)
+
+    // ... and empty channel
+    await channelManager.emptyChannel(viewer.address)
+  }
+
+  async function ffStartedExitThreadWithUpdate() {
+    // fast-forward channel to thread dispute state
+    await ffThreadDispute()
+
+    // prepare initial thread state
+    initThread.weiBalances = [10, 0]
+    initThread.proof = initChannel.proof
+    initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+    // prepare updated thread state ...
+    initThread.updatedWeiBalances = [7, 3]
+    initThread.updatedTxCount = 1
+    initThread.updateSig = await signUpdatedThreadState(initThread, viewer.privateKey)
+
+    // ... and start exit with that
+    await startExitThreadWithUpdate(initThread, viewer.address)
+  }
+
   describe('contract deployment', () => {
     it("verify initialized parameters", async () => {
       const approvedToken = await channelManager.approvedToken()
@@ -634,46 +692,6 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  async function ffThreadDispute() {
-    // get some wei into the channel
-    initChannel.user = viewer.address
-    initChannel.pendingWeiUpdates = [100, 0, 100, 0]
-    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-    await userAuthorizedUpdate(initChannel, viewer, 100)
-
-    // prepare channel update that contains thread ...
-    initChannel.weiBalances = [100, 90]
-    initChannel.pendingWeiUpdates = [0, 0, 0, 0]
-    initChannel.txCount = [2, 2]
-
-    const threadInitialState = {
-      "contractAddress": channelManager.address,
-      "sender": viewer.address,
-      "receiver": performer.address,
-      "threadId": 1,
-      "balanceWeiSender": 10,
-      "balanceWeiReceiver": 0,
-      "balanceTokenSender": 0,
-      "balanceTokenReceiver": 0,
-      "txCount": 0
-    }
-    initChannel.threadRoot = await generateThreadRootHash([threadInitialState])
-    initChannel.proof = await generateThreadProof(threadInitialState, [threadInitialState])
-    initChannel.threadCount = 1
-
-    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-    initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
-
-    // ... and start exit with that
-    await startExitWithUpdate(initChannel, viewer.address)
-
-    // wait ...
-    await moveForwardSecs(config.timeout + 1)
-
-    // ... and empty channel
-    await channelManager.emptyChannel(viewer.address)
-  }
-
   describe('startExitThread', () => {
     it("happy case", async() => {
       // fast-forward channel to thread dispute state
@@ -820,24 +838,6 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('initial thread state is not contained in threadRoot')
     })
   })
-
-  async function ffStartedExitThreadWithUpdate() {
-    // fast-forward channel to thread dispute state
-    await ffThreadDispute()
-
-    // prepare initial thread state
-    initThread.weiBalances = [10, 0]
-    initThread.proof = initChannel.proof
-    initThread.sig = await signThreadState(initThread, viewer.privateKey)
-
-    // prepare updated thread state ...
-    initThread.updatedWeiBalances = [7, 3]
-    initThread.updatedTxCount = 1
-    initThread.updateSig = await signUpdatedThreadState(initThread, viewer.privateKey)
-
-    // ... and start exit with that
-    await startExitThreadWithUpdate(initThread, viewer.address)
-  }
 
   describe('startExitThreadWithUpdate', () => {
     it("happy case", async() => {
