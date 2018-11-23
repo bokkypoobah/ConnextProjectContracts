@@ -335,7 +335,8 @@ contract("ChannelManager", accounts => {
       "updatedTokenBalances": [0, 0],
       "updatedTxCount": 0,
       "proof": await generateThreadProof(dummyThreadState, [dummyThreadState]),
-      "sig": "0x0"
+      "sig": "0x0",
+      "updateSig": "0x0"
     }
   })
 
@@ -806,7 +807,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('signature invalid')
     })
 
-    it("fails when thread state wasn't included in channel's threadRoot", async () => {
+    it("fails when initial thread state wasn't included in channel's threadRoot", async () => {
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -841,6 +842,215 @@ contract("ChannelManager", accounts => {
   describe('startExitThreadWithUpdate', () => {
     it("happy case", async() => {
       await ffStartedExitThreadWithUpdate()
+    })
+
+    it("fails when channel not in thread dispute", async () => {
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('channel must be in thread dispute phase')
+    })
+
+    it("fails when msg.sender is neither hub nor user", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      await startExitThreadWithUpdate(initThread, performer.address)
+        .should.be.rejectedWith('thread exit initiator must be user or hub')
+    })
+
+    it("fails when user is neither sender nor receiver", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.sender = someone.address
+      initThread.receiver = someone.address
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('user must be thread sender or receiver')
+    })
+
+    it("fails when initial receiver wei balance is not zero", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.weiBalances[1] = 1
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('initial receiver balances must be zero')
+    })
+
+    it("fails when initial receiver token balance is not zero", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.tokenBalances[1] = 1
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('initial receiver balances must be zero')
+    })
+
+    it("fails when thread closing time is not zero", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // prepare initial thread state ...
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      // ... and start exit with that
+      await startExitThread(initThread, viewer.address)
+
+      // try to start exit once again
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('thread closing time must be zero')
+    })
+
+    it("fails when sender and receiver are the same", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.receiver = initThread.sender
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('sender can not be receiver')
+    })
+
+    it("fails when sender is hub", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.sender = hub.address
+      initThread.receiver = initThread.user
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('hub can not be sender or receiver')
+    })
+
+    it("fails when receiver is hub", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.receiver = hub.address
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('hub can not be sender or receiver')
+    })
+
+    it("fails when sender is contract", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.sender = channelManager.address
+      initThread.receiver = initThread.user
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('channel manager can not be sender or receiver')
+    })
+
+    it("fails when receiver is contract", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.receiver = channelManager.address
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('channel manager can not be sender or receiver')
+    })
+
+    it("fails when thread state and signature don't match", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // real initial state that was included in channel's thread root
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      initThread.weiBalances = [69, 0]
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('signature invalid')
+    })
+
+    it("fails when thread state wasn't included in channel's threadRoot", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // fake initial state -- was not included in channel's thread root
+      initThread.weiBalances = [69, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('initial thread state is not contained in threadRoot')
+    })
+
+    it("fails when updatedTxCount is zero", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // initial state
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      initThread.updatedTxCount = 0
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('updated thread txCount must be higher than 0')
+    })
+
+    it("fails when sum of updated wei balances doesn't match initial sender wei balance", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // initial state
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      initThread.updatedWeiBalances = [7, 4]
+      initThread.updatedTxCount = 1
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('updated wei balances must match sum of initial wei balances')
+    })
+
+    it("fails when balances in updated state are the same as in initial state", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // initial state
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      initThread.updatedWeiBalances = [10, 0]
+      initThread.updatedTxCount = 1
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('receiver balances may never decrease and either wei or token balance must strictly increase')
+    })
+
+    it("fails when updated thread state and signature don't match", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // initial state
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      // signed updated state
+      initThread.updatedWeiBalances = [69, 3]
+      initThread.updatedTxCount = 1
+      initThread.updatedSig = await signUpdatedThreadState(initThread, viewer.privateKey)
+
+      // real updated state
+      initThread.updatedWeiBalances = [7, 3]
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('signature invalid')
+    })
+
+    it("fails when initial thread state wasn't included in channel's threadRoot", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // fake initial state -- was not included in channel's thread root
+      initThread.weiBalances = [69, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      await startExitThreadWithUpdate(initThread, viewer.address)
+        .should.be.rejectedWith('initial thread state is not contained in threadRoot')
     })
   })
 
