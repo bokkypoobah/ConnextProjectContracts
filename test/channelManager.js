@@ -811,7 +811,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('channel manager can not be sender or receiver')
     })
 
-    it("fails when thread state and signature don't match", async () => {
+    it("fails when initial thread state and signature don't match", async () => {
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -825,7 +825,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('signature invalid')
     })
 
-    it("fails when initial thread state wasn't included in channel's threadRoot", async () => {
+    it("fails when initial thread state isn't included in channel's threadRoot", async () => {
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -949,7 +949,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('channel manager can not be sender or receiver')
     })
 
-    it("fails when thread state and signature don't match", async () => {
+    it("fails when initial thread state and signature don't match", async () => {
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -963,7 +963,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('signature invalid')
     })
 
-    it("fails when thread state wasn't included in channel's threadRoot", async () => {
+    it("fails when initial thread state isn't included in channel's threadRoot", async () => {
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -991,6 +991,8 @@ contract("ChannelManager", accounts => {
     })
 
     it("fails when sum of updated wei balances doesn't match initial sender wei balance", async () => {
+      // TODO (possibly): The same for token
+
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -1040,7 +1042,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('signature invalid')
     })
 
-    it("fails when initial thread state wasn't included in channel's threadRoot", async () => {
+    it("fails when initial thread state isn't included in channel's threadRoot", async () => {
       // fast-forward channel to thread dispute state
       await ffThreadDispute()
 
@@ -1074,7 +1076,7 @@ contract("ChannelManager", accounts => {
         .should.be.rejectedWith('only hub, sender, or receiver can call this function')
     })
 
-    it("fails when thread closing time has not passed yet", async () => {
+    it("fails when thread closing time has passed", async () => {
       // fast-forward thread to started exit
       await ffStartedExitThreadWithUpdate()
 
@@ -1096,6 +1098,8 @@ contract("ChannelManager", accounts => {
     })
 
     it("fails when sum of wei balances doesn't match sum of onchain wei balances", async () => {
+      // TODO (possibly): The same for token
+
       // fast-forward thread to started exit
       await ffStartedExitThreadWithUpdate()
 
