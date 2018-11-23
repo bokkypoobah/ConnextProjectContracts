@@ -1224,6 +1224,76 @@ contract("ChannelManager", accounts => {
     // because we need a second thread to keep the channel in ThreadDispute
     // after emptying.
 
+    it("fails when same user tries to empty twice", async () => {
+      // get some wei into the channel
+      initChannel.user = viewer.address
+      initChannel.pendingWeiUpdates = [100, 0, 100, 0]
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      await userAuthorizedUpdate(initChannel, viewer, 100)
+
+      // prepare channel update that contains 2 thread ...
+      initChannel.weiBalances = [100, 70]
+      initChannel.pendingWeiUpdates = [0, 0, 0, 0]
+      initChannel.txCount = [3, 3]
+
+      const thread1InitialState = {
+        "contractAddress": channelManager.address,
+        "sender": viewer.address,
+        "receiver": performer.address,
+        "threadId": 1,
+        "balanceWeiSender": 10,
+        "balanceWeiReceiver": 0,
+        "balanceTokenSender": 0,
+        "balanceTokenReceiver": 0,
+        "txCount": 0
+      }
+
+      const thread2InitialState = {
+        "contractAddress": channelManager.address,
+        "sender": viewer.address,
+        "receiver": someone.address,
+        "threadId": 1,
+        "balanceWeiSender": 20,
+        "balanceWeiReceiver": 0,
+        "balanceTokenSender": 0,
+        "balanceTokenReceiver": 0,
+        "txCount": 0
+      }
+
+      initChannel.threadRoot = await generateThreadRootHash([thread1InitialState, thread2InitialState])
+      initChannel.proof = await generateThreadProof(thread1InitialState, [thread1InitialState, thread2InitialState])
+      initChannel.threadCount = 2 // well, I guess we could have just faked that number into the channel state, without actually including a second thread in the merkle root
+
+      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
+
+      await startExitWithUpdate(initChannel, viewer.address)
+
+      // wait ...
+      await moveForwardSecs(config.timeout + 1)
+
+      // ... and empty channel
+      await channelManager.emptyChannel(viewer.address)
+
+      // prepare initial state for thread1
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      // start exit thread1 with initial state
+      await startExitThread(initThread, viewer.address)
+
+      // wait ...
+      await moveForwardSecs(config.timeout + 1)
+
+      // ... and empty thread
+      await emptyThread(initThread, viewer.address)
+
+      // finally, try to empty a second time
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('user cannot empty twice')
+    })
+
     it("fails when initial thread state and signature don't match", async () => {
       // fast-forward thread to started exit
       await ffStartedExitThreadWithUpdate()
