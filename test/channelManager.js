@@ -368,7 +368,7 @@ contract("ChannelManager", accounts => {
       "txCount": 0
     }
     initChannel.threadRoot = await generateThreadRootHash([threadInitialState])
-    initChannel.proof = await generateThreadProof(threadInitialState, [threadInitialState])
+    initThread.proof = await generateThreadProof(threadInitialState, [threadInitialState])
     initChannel.threadCount = 1
 
     initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
@@ -390,7 +390,6 @@ contract("ChannelManager", accounts => {
 
     // prepare initial thread state
     initThread.weiBalances = [10, 0]
-    initThread.proof = initChannel.proof
     initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
     // prepare updated thread state ...
@@ -699,7 +698,6 @@ contract("ChannelManager", accounts => {
 
       // prepare initial thread state ...
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       // ... and start exit with that
@@ -753,7 +751,6 @@ contract("ChannelManager", accounts => {
 
       // prepare initial thread state ...
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       // ... and start exit with that
@@ -817,7 +814,6 @@ contract("ChannelManager", accounts => {
 
       // real initial state that was included in channel's thread root
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       initThread.weiBalances = [69, 0]
@@ -831,7 +827,6 @@ contract("ChannelManager", accounts => {
 
       // fake initial state -- was not included in channel's thread root
       initThread.weiBalances = [69, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       await startExitThread(initThread, viewer.address)
@@ -891,7 +886,6 @@ contract("ChannelManager", accounts => {
 
       // prepare initial thread state ...
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       // ... and start exit with that
@@ -955,7 +949,6 @@ contract("ChannelManager", accounts => {
 
       // real initial state that was included in channel's thread root
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       initThread.weiBalances = [69, 0]
@@ -969,7 +962,6 @@ contract("ChannelManager", accounts => {
 
       // fake initial state -- was not included in channel's thread root
       initThread.weiBalances = [69, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       await startExitThreadWithUpdate(initThread, viewer.address)
@@ -982,7 +974,6 @@ contract("ChannelManager", accounts => {
 
       // initial state
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       initThread.updatedTxCount = 0
@@ -998,7 +989,6 @@ contract("ChannelManager", accounts => {
 
       // initial state
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       initThread.updatedWeiBalances = [7, 4]
@@ -1013,7 +1003,6 @@ contract("ChannelManager", accounts => {
 
       // initial state
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       initThread.updatedWeiBalances = [10, 0]
@@ -1028,7 +1017,6 @@ contract("ChannelManager", accounts => {
 
       // initial state
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       // signed updated state
@@ -1048,7 +1036,6 @@ contract("ChannelManager", accounts => {
 
       // fake initial state -- was not included in channel's thread root
       initThread.weiBalances = [69, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       await startExitThreadWithUpdate(initThread, viewer.address)
@@ -1160,7 +1147,6 @@ contract("ChannelManager", accounts => {
 
       // prepare initial thread state
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       // viewer empties
@@ -1261,7 +1247,7 @@ contract("ChannelManager", accounts => {
       }
 
       initChannel.threadRoot = await generateThreadRootHash([thread1InitialState, thread2InitialState])
-      initChannel.proof = await generateThreadProof(thread1InitialState, [thread1InitialState, thread2InitialState])
+      initThread.proof = await generateThreadProof(thread1InitialState, [thread1InitialState, thread2InitialState])
       initChannel.threadCount = 2 // well, I guess we could have just faked that number into the channel state, without actually including a second thread in the merkle root
 
       initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
@@ -1277,7 +1263,6 @@ contract("ChannelManager", accounts => {
 
       // prepare initial state for thread1
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       // start exit thread1 with initial state
@@ -1303,7 +1288,6 @@ contract("ChannelManager", accounts => {
 
       // real initial state that was included in channel's thread root
       initThread.weiBalances = [10, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       initThread.weiBalances = [69, 0]
@@ -1320,7 +1304,6 @@ contract("ChannelManager", accounts => {
 
       // fake initial state -- was not included in channel's thread root
       initThread.weiBalances = [69, 0]
-      initThread.proof = initChannel.proof
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
 
       await emptyThread(initThread, viewer.address)
