@@ -8,6 +8,10 @@ Use the scripts in the package.json to ensure the proper test environment:
     # Node and npm versions:
     # node >= v10
     # npm >= v6
+    
+    # update the connext client repo
+    $ cd client
+    $ npm i
 
     # install the dev dependencies
     # run ganache in the background (or separate shell) ensuring the proper mnemonic
