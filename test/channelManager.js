@@ -1065,6 +1065,69 @@ contract("ChannelManager", accounts => {
       initThread.sig = await signThreadState(initThread, viewer.privateKey)
       await challengeThread(initThread, performer.address)
     })
+
+    it("fails when msg.sender is neither hub nor sender nor receiver", async () => {
+      // fast-forward thread to started exit
+      await ffThreadDispute()
+
+      await challengeThread(initThread, someone.address)
+        .should.be.rejectedWith('only hub, sender, or receiver can call this function')
+    })
+
+    it("fails when thread closing time has not passed yet", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      // wait until threadClosingTime has passed
+      await moveForwardSecs(config.timeout + 1)
+
+      await challengeThread(initThread, viewer.address)
+        .should.be.rejectedWith('thread closing time must not have passed')
+    })
+
+    it("fails when txCount is not higher than onchain txCount", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      initThread.txCount = 0
+
+      await challengeThread(initThread, viewer.address)
+        .should.be.rejectedWith('thread txCount must be higher than the current thread txCount')
+    })
+
+    it("fails when sum of wei balances doesn't match sum of onchain wei balances", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      initThread.weiBalances = [7, 4]
+      initThread.txCount = 2
+      await challengeThread(initThread, viewer.address)
+        .should.be.rejectedWith('updated wei balances must match sum of thread wei balances')
+    })
+
+    it("fails when balances are the same as in onchain state", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      initThread.weiBalances = [7, 3]
+      initThread.txCount = 2
+      await challengeThread(initThread, viewer.address)
+        .should.be.rejectedWith('receiver balances may never decrease and either wei or token balance must strictly increase')
+    })
+
+    it("fails when thread state and signature don't match", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      // real thread state
+      initThread.weiBalances = [69, 3]
+      initThread.txCount = 2
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      initThread.weiBalances = [5, 5]
+      await challengeThread(initThread, viewer.address)
+        .should.be.rejectedWith('signature invalid')
+    })
   })
 
   describe('emptyThread', () => {
