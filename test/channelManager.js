@@ -1170,6 +1170,97 @@ contract("ChannelManager", accounts => {
       initThread.user = performer.address
       await emptyThread(initThread, performer.address)
     })
+
+    it("fails when channel not in thread dispute", async () => {
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('channel must be in thread dispute')
+    })
+
+    it("fails when msg.sender is neither hub nor user", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      await emptyThread(initThread, performer.address)
+        .should.be.rejectedWith('thread exit initiator must be user or hub')
+    })
+
+    it("fails when user is neither sender nor receiver", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.sender = someone.address
+      initThread.receiver = someone.address
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('user must be thread sender or receiver')
+    })
+
+    it("fails when initial receiver wei balance is not zero", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.weiBalances[1] = 1
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('initial receiver balances must be zero')
+    })
+
+    it("fails when initial receiver token balance is not zero", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      initThread.tokenBalances[1] = 1
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('initial receiver balances must be zero')
+    })
+
+    it("fails when thread closing time hasn't passed yet", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('Thread closing time must have passed')
+    })
+
+    // TODO: fails when same user tries to empty twice -- quite laborious,
+    // because we need a second thread to keep the channel in ThreadDispute
+    // after emptying.
+
+    it("fails when initial thread state and signature don't match", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      // wait for thread closing time to pass
+      await moveForwardSecs(config.timeout + 1)
+
+      // real initial state that was included in channel's thread root
+      initThread.weiBalances = [10, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      initThread.weiBalances = [69, 0]
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('signature invalid')
+    })
+
+    it("fails when initial thread state isn't included in channel's threadRoot", async () => {
+      // fast-forward thread to started exit
+      await ffStartedExitThreadWithUpdate()
+
+      // wait for thread closing time to pass
+      await moveForwardSecs(config.timeout + 1)
+
+      // fake initial state -- was not included in channel's thread root
+      initThread.weiBalances = [69, 0]
+      initThread.proof = initChannel.proof
+      initThread.sig = await signThreadState(initThread, viewer.privateKey)
+
+      await emptyThread(initThread, viewer.address)
+        .should.be.rejectedWith('initial thread state is not contained in threadRoot')
+    })
+
+    // These should not be possible:
+    // * fails when sum of onchain wei balances doesn't match initial wei balances
+    // * fails when sum of onchain token balances doesn't match initial token balances
+    // * fails when receiver's onchain wei or token balance is less than in initial state
   })
 
   describe('nukeThreads', () => {
