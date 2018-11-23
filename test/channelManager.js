@@ -1274,5 +1274,33 @@ contract("ChannelManager", accounts => {
       // nuke
       await nukeThreads(initThread, performer.address)
     })
+
+    it("fails when user == hub", async () => {
+      initChannel.user = hub.address
+      await nukeThreads(initChannel, viewer.address)
+        .should.be.rejectedWith('user can not be hub')
+    })
+
+    it("fails when user == contract", async () => {
+      initChannel.user = channelManager.address
+      await nukeThreads(initChannel, viewer.address)
+        .should.be.rejectedWith('user can not be channel manager')
+    })
+
+    it("fails when channel not in thread dispute", async () => {
+      await nukeThreads(initChannel, viewer.address)
+        .should.be.rejectedWith('channel must be in thread dispute')
+    })
+
+    it("fails when we're not past 10 challenge periods after channelClosingTime", async () => {
+      // fast-forward channel to thread dispute state
+      await ffThreadDispute()
+
+      // wait only for 9 challenge periods
+      await moveForwardSecs(9 * config.timeout)
+
+      await nukeThreads(initChannel, viewer.address)
+        .should.be.rejectedWith('channel closing time must have passed by 10 challenge periods')
+    })
   })
 })
