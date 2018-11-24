@@ -50,6 +50,7 @@ async function moveForwardSecs(secs) {
     id: 0
   }, (err)=> {`error increasing time`});
   const start = Date.now();
+  // TODO why do we do these empty loops?
   while (Date.now() < start + 300) {}
   await ethRPC.sendAsync({method: `evm_mine`}, (err)=> {});
   while (Date.now() < start + 300) {}
@@ -75,6 +76,8 @@ function getEventParams(tx, event) {
   return false
 }
 
+// TODO why is this called updateHash?
+// - should be called signHash
 async function updateHash(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     channelManager.address,
@@ -92,6 +95,8 @@ async function updateHash(data, privateKey) {
   return sig.signature
 }
 
+// TODO this is properly named
+// - to be consistent, the above should be called "signChannelState"
 async function signThreadState(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     {type: "address", value: channelManager.address},
@@ -106,6 +111,8 @@ async function signThreadState(data, privateKey) {
   return sig.signature
 }
 
+// TODO this is a bad name
+// - should be called "signThreadUpdate"
 async function signUpdatedThreadState(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     {type: "address", value: channelManager.address},
@@ -351,6 +358,13 @@ contract("ChannelManager", accounts => {
     initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
     await userAuthorizedUpdate(initChannel, viewer, 100)
 
+    // initChannel -> initChannel (balances updated to account for thread
+    // opening)
+    //
+    // initialize thread state (using the same balance diff as the channel)
+    // channel.openThread(sender, receiver, balanceWei, balanceToken)
+    // -> channel
+
     // prepare channel update that contains thread ...
     initChannel.weiBalances = [100, 90]
     initChannel.pendingWeiUpdates = [0, 0, 0, 0]
@@ -447,8 +461,17 @@ contract("ChannelManager", accounts => {
 
   describe('hubAuthorizedUpdate', () => {
     it("happy case", async () => {
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
-      await hubAuthorizedUpdate(initChannel)
+
+      connext = new Connext({
+        web3,
+        hubUrl: process.env.HUB_URL || '',
+        contractAddress: process.env.CONTRACT_ADDRESS || '',
+        hubAddress: process.env.HUB_ADDRESS || '',
+        tokenAddress: process.env.TOKEN_ADDRESS,
+      })
+
+      // initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      // await hubAuthorizedUpdate(initChannel)
     })
 
     // TODO write tests based on:
@@ -542,9 +565,7 @@ contract("ChannelManager", accounts => {
       initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
       // attempt update
       await userAuthorizedUpdate(initChannel, performer)
-        .should
-        .be
-        .rejectedWith(
+        .should.be.rejectedWith(
           'Returned error: VM Exception while processing transaction: revert'
         )
     })
@@ -596,9 +617,7 @@ contract("ChannelManager", accounts => {
       initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
 
       await startExitWithUpdate(initChannel, viewer.address)
-        .should
-        .be
-        .rejectedWith('exit initiator must be user or hub')
+        .should.be.rejectedWith('exit initiator must be user or hub')
     })
 
     it("fails when timeout != 0", async () => {
