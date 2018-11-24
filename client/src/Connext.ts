@@ -32,7 +32,7 @@ import {
 
 // const tokenAbi = require('human-standard-token-abi')
 
-// TO DO: get from typechain? or does contract do npm now
+// TODO: get from typechain? or does contract do npm now
 // const channelManagerAbi = require('../artifacts/LedgerChannel.json')
 
 type Address = string
@@ -293,7 +293,7 @@ export class Connext {
     return signedChannel
   }
 
-  // TO DO: fix for performer closing thread
+  // TODO: fix for performer closing thread
   closeThread = async (
     receiver: Address,
     sender: Address,
@@ -425,7 +425,7 @@ export class Connext {
       current: proposedThreadState,
     })
 
-    // TO DO: post to hub
+    // TODO: post to hub
     // const signedChannelHub = channelStateToChannelStateUpdate(
     //   'Payment',
     //   signedThread,
@@ -504,7 +504,7 @@ export class Connext {
   }
 
   // only here when working on happy case
-  // TO DO: implement disputes
+  // TODO: implement disputes
   enterDisputeCase = async (reason: any): Promise<any> => {}
 
   // top level functions
@@ -796,7 +796,7 @@ export class Connext {
         break
       case 'OpenThread':
         signedState = await this.signOpenThreadUpdate(
-          // TO DO: fix better
+          // TODO: fix better
           //           Argument of type '_ThreadStateFingerprint<string> | undefin
           // ed' is not assignable to parameter of type '_ThreadStateFingerprint<string>'.
           opts.threadState as ThreadStateFingerprint,
@@ -805,7 +805,7 @@ export class Connext {
         )
         break
       case 'CloseThread':
-        // TO DO:
+        // TODO:
         // retrieve the final thread state from previous channel state
         // if it doesnt exist (i.e sync)
         signedState = await this.signCloseThreadUpdate(
@@ -815,7 +815,7 @@ export class Connext {
         )
         break
       default:
-        // TO DO: ask wolever
+        // TODO: ask wolever
         // @ts-ignore
         assertUnreachable(reason)
     }
@@ -829,7 +829,7 @@ export class Connext {
   }
 
   // handlers for update types
-  // TO DO: implement
+  // TODO: implement
   signExchangeUpdate = async (
     exchangeAmount: ExchangedBalances,
     previousChannelState: SignedChannelState,
@@ -856,7 +856,7 @@ export class Connext {
     )
     const hash = Utils.createChannelStateUpdateHash(proposedChannelState)
     // sign
-    // TO DO: personal sign is causing issues, sign params in weird order
+    // TODO: personal sign is causing issues, sign params in weird order
     // is this a typescript issue
     // @ts-ignore
     const sigUser = await this.web3.eth.personal.sign(
@@ -897,7 +897,7 @@ export class Connext {
     )
     const hash = Utils.createChannelStateUpdateHash(proposedChannelState)
     // sign
-    // TO DO: personal sign is causing issues, sign params in weird order
+    // TODO: personal sign is causing issues, sign params in weird order
     // is this a typescript issue
     // @ts-ignore
     const sigUser = await this.web3.eth.personal.sign(
@@ -913,7 +913,7 @@ export class Connext {
     return signedState
   }
 
-  // TO DO: implement
+  // TODO: implement
   signOpenThreadUpdate = async (
     proposedThreadState: ThreadStateFingerprint,
     previousChannelState: SignedChannelState,
@@ -939,7 +939,7 @@ export class Connext {
     )
     const hash = Utils.createChannelStateUpdateHash(proposedChannelState)
     // sign
-    // TO DO: personal sign is causing issues, sign params in weird order
+    // TODO: personal sign is causing issues, sign params in weird order
     // is this a typescript issue
     // @ts-ignore
     const sigUser = await this.web3.eth.personal.sign(
@@ -955,7 +955,7 @@ export class Connext {
     return signedState
   }
 
-  // TO DO: implement
+  // TODO: implement
   signCloseThreadUpdate = async (
     finalThreadState: ThreadStateFingerprint,
     previousChannelState: SignedChannelState,
@@ -981,7 +981,7 @@ export class Connext {
     )
     const hash = Utils.createChannelStateUpdateHash(proposedChannelState)
     // sign
-    // TO DO: personal sign is causing issues, sign params in weird order
+    // TODO: personal sign is causing issues, sign params in weird order
     // is this a typescript issue
     // @ts-ignore
     const sigUser = await this.web3.eth.personal.sign(
@@ -1023,7 +1023,7 @@ export class Connext {
     )
     const hash = Utils.createChannelStateUpdateHash(proposedChannelState)
     // sign
-    // TO DO: personal sign is causing issues, sign params in weird order
+    // TODO: personal sign is causing issues, sign params in weird order
     // is this a typescript issue
     // @ts-ignore
     const sigUser = await this.web3.eth.personal.sign(
@@ -1064,7 +1064,7 @@ export class Connext {
     )
     const hash = Utils.createChannelStateUpdateHash(proposedChannelState)
     // sign
-    // TO DO: personal sign is causing issues, sign params in weird order
+    // TODO: personal sign is causing issues, sign params in weird order
     // is this a typescript issue
     // @ts-ignore
     const sigUser = await this.web3.eth.personal.sign(
@@ -1081,7 +1081,7 @@ export class Connext {
   }
 
   // function returns signature on thread updates
-  // TO DO: finish
+  // TODO: finish
   createThreadStateUpdate = async (
     opts: ThreadValidatorOptions,
     meta?: Object,
@@ -1091,7 +1091,7 @@ export class Connext {
       throw new Error(`Error validating update: ${isValid}`)
     }
     const hash = Utils.createThreadStateUpdateHash(opts.current)
-    // TO DO: this is probably also poor form
+    // TODO: this is probably also poor form
     let signed = opts.current as ThreadState
     // @ts-ignore
     signed.sigA = await this.web3.eth.personal.sign(hash, opts.current.sender)
@@ -1180,7 +1180,7 @@ export class Connext {
     return tx
   }
 
-  /** TO DO: will we need any of these methods anymore or is this wallet level abstraction? */
+  /** TODO: will we need any of these methods anymore or is this wallet level abstraction? */
   // @ts-ignore
   // closeAllThreads = async (user?: Address): Promise<ContractChannelState[]> => {}
 

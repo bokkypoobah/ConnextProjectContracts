@@ -130,7 +130,7 @@ contract ChannelManager {
         uint256[2] weiBalances; // [sender, receiver]
         uint256[2] tokenBalances; // [sender, receiver]
         uint256 txCount; // persisted onchain even when empty
-        uint256 threadClosingTime; 
+        uint256 threadClosingTime;
         bool[2] emptied; // [sender, receiver]
     }
 
