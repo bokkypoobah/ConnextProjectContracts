@@ -1145,7 +1145,7 @@ Called by any party when the thread dispute timer expires. Uses the latest avail
 2. Verifies that the caller of the function is either the hub or the user.
 3. Verifies that the provided `user` is either the sender or receiver in the thread.
 4. Verifies that the initial receiver balances are zero.
-5. Verifies that the thread dispute timer has expired
+5. Verifies that the thread dispute timer has expired.
 6. Verifies that the thread has not already been emptied before for the caller's channel.
 7. Verifies the initial state of the thread and checks that it's a part of the user's channel. This is primarily done in case an already settled thread is being emptied by the thread counterparty.
 8. Verifies that balances are concerved and that receiver balances only ever increase.
@@ -1174,7 +1174,7 @@ function emptyThread(
     Thread storage thread = threads[sender][receiver][threadId];
 
     // We check to make sure that the thread state has been finalized
-    require(thread.threadClosingTime < now, "Thread closing time must have passed");
+    require(thread.threadClosingTime != 0 && thread.threadClosingTime < now, "Thread closing time must have passed");
 
     // Make sure user has not emptied before
     require(!thread.emptied[user == sender ? 0 : 1], "user cannot empty twice");

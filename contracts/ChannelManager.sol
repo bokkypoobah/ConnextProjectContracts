@@ -745,7 +745,7 @@ contract ChannelManager {
         Thread storage thread = threads[sender][receiver][threadId];
 
         // We check to make sure that the thread state has been finalized
-        require(thread.threadClosingTime < now, "Thread closing time must have passed");
+        require(thread.threadClosingTime != 0 && thread.threadClosingTime < now, "Thread closing time must have passed");
 
         // Make sure user has not emptied before
         require(!thread.emptied[user == sender ? 0 : 1], "user cannot empty twice");
