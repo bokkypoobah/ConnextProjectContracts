@@ -1014,7 +1014,7 @@ Initializes thread state onchain and immediately updates it. This is called when
 5. Verifies that the thread timer is zero.
 6. Verifies the thread using the `_verifyThread` method: recreates the signature and recovers signer, then checks that the initial state is part of the `threadRoot`.
 7. Verifies that the transaction count for the updated state is greater than 0 (`txCount` of initial state).
-8. Verifies that the total wei and token balances must be equal to the previously recorded total wei and token balances (i.e. value is conserved).
+8. Verifies that the total wei and token balances must be equal to the initial total wei and token balances (i.e. value is conserved). Note that since initial receiver balances have to be zero (see 4 above), for the initial state, "sender balance" and "total balance" are the same.
 9. Verifies that the update only *increases* the value of the receiver and strictly requires that either wei or token balance increases. This is because threads are *unidirectional*: value can only move from sender→receiver. Doing this removes the need for a signature from the receiver.
 10. Verifies that the signature of the updated thread state using the `_verifyThread` method. Note that the `threadRoot` is set to `bytes32(0x0)`because a merkle proof is not needed for the not-initial state.
 11. Updates the thread state onchain and starts the thread dispute timer.
@@ -1050,14 +1050,10 @@ function startExitThreadWithUpdate(
     // *********************
 
     require(updatedTxCount > 0, "updated thread txCount must be higher than 0");
-    require(updatedWeiBalances[0].add(updatedWeiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
-    require(updatedTokenBalances[0].add(updatedTokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
+    require(updatedWeiBalances[0].add(updatedWeiBalances[1]) == weiBalances[0], "sum of updated wei balances must match sender's initial wei balance");
+    require(updatedTokenBalances[0].add(updatedTokenBalances[1]) == tokenBalances[0], "sum of updated token balances must match sender's initial token balance");
 
-    require(
-      updatedWeiBalances[1] >  weiBalances[1] && updatedTokenBalances[1] >= tokenBalances[1] ||
-      updatedWeiBalances[1] >= weiBalances[1] && updatedTokenBalances[1] >  tokenBalances[1],
-      "receiver balances may never decrease and either wei or token balance must strictly increase"
-    );
+    require(updatedWeiBalances[1] > 0 || updatedTokenBalances[1] > 0, "receiver balances may never decrease and either wei or token balance must strictly increase");
 
     // Note: explicitly set threadRoot == 0x0 because then it doesn't get checked by _isContained (updated state is not part of root)
     _verifyThread(threadMembers[0], threadMembers[1], threadId, updatedWeiBalances, updatedTokenBalances, updatedTxCount, "", updateSig, bytes32(0x0));
@@ -1148,7 +1144,7 @@ Called by any party when the thread dispute timer expires. Uses the latest avail
 5. Verifies that the thread dispute timer has expired.
 6. Verifies that the thread has not already been emptied before for the caller's channel.
 7. Verifies the initial state of the thread and checks that it's a part of the user's channel. This is primarily done in case an already settled thread is being emptied by the thread counterparty.
-8. Verifies that balances are concerved and that receiver balances only ever increase.
+8. Verifies that balances are conserved.
 9. Deducts the onchain thread balances from the onchain channel balances for the provided user's channel.
 10. Deducts the onchain thread balances from the global total onchain channel balances (i.e. moves balances back into the hub's reserve) and then transfers onchain thread balances to their respective owners. Note: state is not zeroed out here in order to allow for the other party to call `emptyThread` if needed.
 11. Records that the thread has been emptied for this user's channel which stops reentry of this function.
@@ -1182,10 +1178,8 @@ function emptyThread(
     // verify initial thread state.
     _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
-    require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
-    require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
-
-    require(thread.weiBalances[1] >= weiBalances[1] && thread.tokenBalances[1] >= tokenBalances[1], "receiver balances may never decrease");
+    require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0], "sum of thread wei balances must match sender's initial wei balance");
+    require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0], "sum of thread token balances must match sender's initial token balance");
 
     // deduct sender/receiver wei/tokens about to be emptied from the thread from the total channel balances
     channel.weiBalances[2] = channel.weiBalances[2].sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
