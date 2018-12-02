@@ -737,7 +737,7 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
-        require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
+        require(msg.sender == hub || msg.sender == user, "only hub or user can empty thread");
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
         require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
