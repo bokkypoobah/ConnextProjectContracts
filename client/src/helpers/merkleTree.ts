@@ -1,4 +1,4 @@
-import util = require('ethereumjs-util')
+const util: any = require('ethereumjs-util')
 import { MerkleUtils } from './merkleUtils'
 
 function combinedHash(first: any, second: any) {
@@ -8,9 +8,11 @@ function combinedHash(first: any, second: any) {
   if (!first) {
     return second
   }
+  // @ts-ignore
   let sorted = Buffer.concat([first, second].sort(Buffer.compare))
 
-  return util.keccak256(sorted)
+  // @ts-ignore
+  return (util as any).keccak256(sorted)
 }
 
 function deduplicate(buffers: any[]) {

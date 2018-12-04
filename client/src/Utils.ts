@@ -7,38 +7,23 @@ import MerkleTree from './helpers/merkleTree'
 import Web3 = require('web3')
 
 import {
-  ChannelStateFingerprint,
-  channelStateToBN,
-  channelStateToString,
-  ThreadStateFingerprint,
-  threadStateToBN,
-  threadStateToString,
-  balancesToBN,
-  balancesToString,
+  UnsignedChannelState,
+  UnsignedThreadState,
 } from './types'
 
 // import types from connext
 
+export const emptyAddress = '0x0000000000000000000000000000000000000000'
+export const emptyRootHash = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
 // define the utils functions
 export class Utils {
-  static emptyRootHash =
-    '0x0000000000000000000000000000000000000000000000000000000000000000'
-  static emptyAddress = '0x0000000000000000000000000000000000000000'
-  static channelStateToBN = channelStateToBN
+  emptyAddress = '0x0000000000000000000000000000000000000000'
+  emptyRootHash = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-  static channelStateToString = channelStateToString
-
-  static threadStateToBN = threadStateToBN
-
-  static threadStateToString = threadStateToString
-
-  static balancesToBN = balancesToBN
-
-  static balancesToString = balancesToString
-
-  static createChannelStateUpdateHash = (
-    channelState: ChannelStateFingerprint,
-  ): string => {
+  public createChannelStateHash(
+    channelState: UnsignedChannelState,
+  ): string {
     const {
       contractAddress,
       user,
@@ -63,6 +48,7 @@ export class Utils {
     } = channelState
 
     // hash data
+    // @ts-ignore
     const hash = Web3.utils.soliditySha3(
       { type: 'address', value: contractAddress },
       // @ts-ignore TODO wtf??!
@@ -104,15 +90,17 @@ export class Utils {
     return hash
   }
 
-  static recoverSignerFromChannelStateUpdate = (
-    channelState: ChannelStateFingerprint,
+  public recoverSignerFromChannelState(
+    channelState: UnsignedChannelState,
     // could be hub or user
     sig: string,
-  ): string => {
-    let fingerprint: any = Utils.createChannelStateUpdateHash(channelState)
+  ): string {
+    let fingerprint: any = this.createChannelStateHash(channelState)
     fingerprint = util.toBuffer(String(fingerprint))
     const prefix = util.toBuffer('\x19Ethereum Signed Message:\n')
+    // @ts-ignore
     const prefixedMsg = util.keccak256(
+      // @ts-ignore
       Buffer.concat([
         prefix,
         util.toBuffer(String(fingerprint.length)),
@@ -133,9 +121,7 @@ export class Utils {
     return addr
   }
 
-  static createThreadStateUpdateHash = (
-    threadState: ThreadStateFingerprint,
-  ): string => {
+  public createThreadStateHash(threadState: UnsignedThreadState): string {
     const {
       contractAddress,
       sender,
@@ -147,19 +133,20 @@ export class Utils {
       balanceTokenReceiver,
       txCount,
     } = threadState
-    // convert ChannelState to ChannelStateFingerprint
+    // convert ChannelState to UnsignedChannelState
+    // @ts-ignore
     const hash = Web3.utils.soliditySha3(
       { type: 'address', value: contractAddress },
       { type: 'address', value: sender },
       { type: 'address', value: receiver },
-      { type: 'uint256', value: threadId },
       // @ts-ignore TODO wtf??!
+      { type: 'uint256', value: threadId },
       {
-        type: 'uint256[2]',
+        type: 'uint256',
         value: [balanceWeiSender, balanceWeiReceiver],
       },
       {
-        type: 'uint256[2]',
+        type: 'uint256',
         value: [balanceTokenSender, balanceTokenReceiver],
       },
       { type: 'uint256', value: txCount },
@@ -167,14 +154,16 @@ export class Utils {
     return hash
   }
 
-  static recoverSignerFromThreadStateUpdate = (
-    threadState: ThreadStateFingerprint,
+  public recoverSignerFromThreadState(
+    threadState: UnsignedThreadState,
     sig: string,
-  ): string => {
-    let fingerprint: any = Utils.createThreadStateUpdateHash(threadState)
+  ): string {
+    let fingerprint: any = this.createThreadStateHash(threadState)
     fingerprint = util.toBuffer(String(fingerprint))
     const prefix = util.toBuffer('\x19Ethereum Signed Message:\n')
+    // @ts-ignore
     const prefixedMsg = util.keccak256(
+      // @ts-ignore
       Buffer.concat([
         prefix,
         util.toBuffer(String(fingerprint.length)),
@@ -190,9 +179,9 @@ export class Utils {
     return addr
   }
 
-  static generateThreadMerkleTree = (
-    threadInitialStates: ThreadStateFingerprint[],
-  ): any => {
+  public generateThreadMerkleTree(
+    threadInitialStates: UnsignedThreadState[],
+  ): any {
     // TO DO: should this just return emptyRootHash?
     if (threadInitialStates.length === 0) {
       throw new Error('Cannot create a Merkle tree with 0 leaves.')
@@ -200,42 +189,42 @@ export class Utils {
     let merkle
     let elems = threadInitialStates.map(threadInitialState => {
       // hash each initial state and convert hash to buffer
-      const hash = Utils.createThreadStateUpdateHash(threadInitialState)
+      const hash = this.createThreadStateHash(threadInitialState)
       const buf = MerkleUtils.hexToBuffer(hash)
       return buf
     })
     if (elems.length % 2 !== 0) {
       // cant have odd number of leaves
-      elems.push(MerkleUtils.hexToBuffer(Utils.emptyRootHash))
+      elems.push(MerkleUtils.hexToBuffer(this.emptyRootHash))
     }
     merkle = new MerkleTree(elems)
 
     return merkle
   }
 
-  static generateThreadRootHash = (
-    threadInitialStates: ThreadStateFingerprint[],
-  ): string => {
+  public generateThreadRootHash(
+    threadInitialStates: UnsignedThreadState[],
+  ): string {
     let threadRootHash
     if (threadInitialStates.length === 0) {
       // reset to initial value -- no open VCs
-      threadRootHash = Utils.emptyRootHash
+      threadRootHash = this.emptyRootHash
     } else {
-      const merkle = Utils.generateThreadMerkleTree(threadInitialStates)
+      const merkle = this.generateThreadMerkleTree(threadInitialStates)
       threadRootHash = MerkleUtils.bufferToHex(merkle.getRoot())
     }
 
     return threadRootHash
   }
 
-  static generateThreadProof = (
-    thread: ThreadStateFingerprint,
-    threads: ThreadStateFingerprint[],
-  ) => {
+  public generateThreadProof(
+    thread: UnsignedThreadState,
+    threads: UnsignedThreadState[],
+  ): any {
     // generate hash
-    const hash = Utils.createThreadStateUpdateHash(thread)
+    const hash = this.createThreadStateHash(thread)
     // generate merkle tree
-    let merkle = Utils.generateThreadMerkleTree(threads)
+    let merkle = this.generateThreadMerkleTree(threads)
     let mproof = merkle.proof(MerkleUtils.hexToBuffer(hash))
 
     let proof = []
@@ -248,12 +237,35 @@ export class Utils {
     proof = MerkleUtils.marshallState(proof)
     return proof
   }
+
+  public threadIsContained(
+    threadHash: string,
+    // TO DO: can we not pass in the thread array?
+    threads: UnsignedThreadState[],
+    threadMerkleRoot: string,
+    proof: any,
+  ) {
+    // TO DO: implement without rebuilding the thread tree?
+    // otherwise you will have to pass in threads to each one
+    // solidity code to satisfy:
+    //   function _isContained(bytes32 _hash, bytes _proof, bytes32 _root) internal pure returns (bool) {
+    //     bytes32 cursor = _hash;
+    //     bytes32 proofElem;
+    //     for (uint256 i = 64; i <= _proof.length; i += 32) {
+    //         assembly { proofElem := mload(add(_proof, i)) }
+    //         if (cursor < proofElem) {
+    //             cursor = keccak256(abi.encodePacked(cursor, proofElem));
+    //         } else {
+    //             cursor = keccak256(abi.encodePacked(proofElem, cursor));
+    //         }
+    //     }
+    //     return cursor == _root;
+    // }
+    // generate merkle tree
+    const mtree = this.generateThreadMerkleTree(threads)
+    if (mtree.getRoot() !== threadMerkleRoot) {
+      throw new Error(`Incorrect root provided`)
+    }
+    return mtree.verify(proof, threadHash)
+  }
 }
-
-// remove utils
-// import * as utils from './utils'
-// import {generateThreadRootHash} from './utils'
-
-// class Connext {
-//     utils = utils
-// }

@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
     "baseUrl": ".",
     "declaration": true,
     "emitDecoratorMetadata": true,
@@ -12,11 +15,27 @@
     "outDir": "./dist/",
     "sourceMap": true,
     "target": "es6",
-    "lib": ["es5", "es2015", "es6", "dom", "es2017"],
-    "typeRoots": ["node_modules/@types"],
+    "lib": [
+      "es5",
+      "dom.iterable",
+      "es2015",
+      "es2015.iterable",
+      "es6",
+      "dom",
+      "es2017"
+    ],
+    "typeRoots": [
+      "node_modules/@types",
+      "types"
+    ],
     "paths": {
-      "@src/*": ["./src/*", "./dist/*"]
+      "@src/*": [
+        "./src/*",
+        "./dist/*"
+      ]
     }
   },
-  "include": ["src/**/*.ts"]
+  "include": [
+    "src/**/*.ts"
+  ]
 }

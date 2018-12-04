@@ -1,25 +1,30 @@
 require('dotenv').config()
 const Web3 = require('web3')
 const HttpProvider = require(`ethjs-provider-http`)
-import mocha = require('mocha')
-import BN = require('bn.js')
+
 import { expect } from 'chai'
-import { ChannelStateFingerprint, ThreadStateFingerprint } from './types'
 import { Utils } from './Utils'
 import { MerkleUtils } from './helpers/merkleUtils'
 // import { MerkleTree } from './helpers/merkleTree'
 import MerkleTree from './helpers/merkleTree'
-import * as t from './testing'
-import { assert } from './testing'
+import * as t from './testing/index'
 
+const utils = new Utils()
 describe('Utils', () => {
   let web3: any
   let accounts: string[]
   let partyA: string
-  before('instantiate web3', async () => {
+  before('instantiate web3', async function () {
     // instantiate web3
     web3 = new Web3(new HttpProvider('http://localhost:8545'))
-    accounts = await web3.eth.getAccounts()
+    try {
+      accounts = await web3.eth.getAccounts()
+    } catch (e) {
+      console.log('error fetching web3 accounts:', '' + e)
+      console.warn(`No web3 HTTP provider found at 'localhost:8545'; skipping tests which require web3`)
+      this.skip()
+      return
+    }
     partyA = accounts[1]
   })
 
@@ -27,14 +32,14 @@ describe('Utils', () => {
     // create and sign channel state update
     const channelStateFingerprint = t.getChannelState('full', {
       balanceWei: [100, 200],
-    }) as ChannelStateFingerprint
+    })
     // generate hash
-    const hash = Utils.createChannelStateUpdateHash(channelStateFingerprint)
+    const hash = utils.createChannelStateHash(channelStateFingerprint)
     // sign
     const sig = await web3.eth.sign(hash, partyA)
     console.log(hash) // log harcode hash for other hash test
     // recover signer
-    const signer = Utils.recoverSignerFromChannelStateUpdate(
+    const signer = utils.recoverSignerFromChannelState(
       channelStateFingerprint,
       sig,
     )
@@ -47,12 +52,12 @@ describe('Utils', () => {
       balanceWei: [100, 200],
     })
     // generate hash
-    const hash = Utils.createThreadStateUpdateHash(threadStateFingerprint)
+    const hash = utils.createThreadStateHash(threadStateFingerprint)
     // sign
     const sig = await web3.eth.sign(hash, partyA)
     console.log(hash) // log harcode hash for other hash test
     // recover signer
-    const signer = Utils.recoverSignerFromThreadStateUpdate(
+    const signer = utils.recoverSignerFromThreadState(
       threadStateFingerprint,
       sig,
     )
@@ -65,15 +70,15 @@ describe('Utils', () => {
     })
     // TO DO: merkle tree class imports not working...?
     // generate hash
-    const hash = Utils.createThreadStateUpdateHash(threadStateFingerprint)
+    const hash = utils.createThreadStateHash(threadStateFingerprint)
     // construct elements
     const elements = [
       MerkleUtils.hexToBuffer(hash),
-      MerkleUtils.hexToBuffer(Utils.emptyRootHash),
+      MerkleUtils.hexToBuffer(utils.emptyRootHash),
     ]
     const merkle = new MerkleTree(elements)
     const expectedRoot = MerkleUtils.bufferToHex(merkle.getRoot())
-    const generatedRootHash = Utils.generateThreadRootHash([
+    const generatedRootHash = utils.generateThreadRootHash([
       threadStateFingerprint,
     ])
     expect(generatedRootHash).to.equal(expectedRoot)
