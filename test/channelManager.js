@@ -76,9 +76,7 @@ function getEventParams(tx, event) {
   return false
 }
 
-// TODO why is this called updateHash?
-// - should be called signHash
-async function updateHash(data, privateKey) {
+async function signChannelState(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     channelManager.address,
     {type: 'address[2]', value: [data.user, data.recipient]},
@@ -95,8 +93,6 @@ async function updateHash(data, privateKey) {
   return sig.signature
 }
 
-// TODO this is properly named
-// - to be consistent, the above should be called "signChannelState"
 async function signThreadState(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     {type: "address", value: channelManager.address},
@@ -111,9 +107,7 @@ async function signThreadState(data, privateKey) {
   return sig.signature
 }
 
-// TODO this is a bad name
-// - should be called "signThreadUpdate"
-async function signUpdatedThreadState(data, privateKey) {
+async function signThreadUpdate(data, privateKey) {
   const hash = await web3.utils.soliditySha3(
     {type: "address", value: channelManager.address},
     {type: 'address', value: data.sender},
@@ -355,7 +349,7 @@ contract("ChannelManager", accounts => {
     // get some wei into the channel
     initChannel.user = viewer.address
     initChannel.pendingWeiUpdates = [100, 0, 100, 0]
-    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+    initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
     await userAuthorizedUpdate(initChannel, viewer, 100)
 
     // initChannel -> initChannel (balances updated to account for thread
@@ -385,8 +379,9 @@ contract("ChannelManager", accounts => {
     initThread.proof = await generateThreadProof(threadInitialState, [threadInitialState])
     initChannel.threadCount = 1
 
-    initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-    initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
+    initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+    initChannel.sigUser = await signChannelState(initChannel, viewer.privateKey)
+
 
     // ... and start exit with that
     await startExitWithUpdate(initChannel, viewer.address)
@@ -409,7 +404,7 @@ contract("ChannelManager", accounts => {
     // prepare updated thread state ...
     initThread.updatedWeiBalances = [7, 3]
     initThread.updatedTxCount = 1
-    initThread.updateSig = await signUpdatedThreadState(initThread, viewer.privateKey)
+    initThread.updateSig = await signThreadUpdate(initThread, viewer.privateKey)
 
     // ... and start exit with that
     await startExitThreadWithUpdate(initThread, viewer.address)
@@ -470,7 +465,7 @@ contract("ChannelManager", accounts => {
         tokenAddress: process.env.TOKEN_ADDRESS,
       })
 
-      // initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      // initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       // await hubAuthorizedUpdate(initChannel)
     })
 
@@ -511,7 +506,7 @@ contract("ChannelManager", accounts => {
 
     it("fails user withdrawal with empty channel and pending wei updates", async () => {
       initChannel.pendingWeiUpdates = [0, 0, 0, 1]
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       await hubAuthorizedUpdate(initChannel)
         .should
         .be
@@ -532,7 +527,7 @@ contract("ChannelManager", accounts => {
       // set status to ChannelDispute
       await channelManager.startExit(accounts[1])
       // attempt update
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       await hubAuthorizedUpdate(initChannel)
         .should.be.rejectedWith('channel must be open')
     })
@@ -540,7 +535,7 @@ contract("ChannelManager", accounts => {
 
   describe('userAuthorizedUpdate', () => {
     it("happy case", async () => {
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
       await userAuthorizedUpdate(initChannel, performer)
     })
 
@@ -550,7 +545,7 @@ contract("ChannelManager", accounts => {
       // set invalid deposit amount in wei
       initChannel.pendingWeiUpdates[2] = web3.utils.toWei('1')
       // set sig
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
       // attempt update
       await userAuthorizedUpdate(initChannel, performer)
         .should.be.rejectedWith('msg.value is not equal to pending user deposit')
@@ -562,7 +557,7 @@ contract("ChannelManager", accounts => {
       // set invalid deposit amount in tokens
       initChannel.pendingTokenUpdates[2] = web3.utils.toWei('1')
       // set sig
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
       // attempt update
       await userAuthorizedUpdate(initChannel, performer)
         .should.be.rejectedWith(
@@ -613,8 +608,8 @@ contract("ChannelManager", accounts => {
 
   describe('startExitWithUpdate', () => {
     it("fails when sender not hub or user", async () => {
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
 
       await startExitWithUpdate(initChannel, viewer.address)
         .should.be.rejectedWith('exit initiator must be user or hub')
@@ -622,8 +617,8 @@ contract("ChannelManager", accounts => {
 
     it("fails when timeout != 0", async () => {
       initChannel.timeout = 1
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
 
       await startExitWithUpdate(initChannel, hub.address)
         .should.be.rejectedWith('can\'t start exit with time-sensitive states')
@@ -631,14 +626,14 @@ contract("ChannelManager", accounts => {
 
     it("happy case", async () => {
       initChannel.user = performer.address
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       await startExitWithUpdate(initChannel, hub.address)
     })
 
     it("fails when channel.status != Open", async () => {
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       await channelManager.startExit(performer.address) // channel.status = Status.ChannelDispute
       await startExitWithUpdate(initChannel, hub.address)
         .should
@@ -649,8 +644,8 @@ contract("ChannelManager", accounts => {
 
   describe('emptyChannelWithChallenge', () => {
     it("happy case", async() => {
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       await channelManager.startExit(performer.address, { from: hub.address })
       await emptyChannelWithChallenge(initChannel, performer.address)
     })
@@ -1041,7 +1036,7 @@ contract("ChannelManager", accounts => {
       // signed updated state
       initThread.updatedWeiBalances = [69, 3]
       initThread.updatedTxCount = 1
-      initThread.updatedSig = await signUpdatedThreadState(initThread, viewer.privateKey)
+      initThread.updatedSig = await signThreadUpdate(initThread, viewer.privateKey)
 
       // real updated state
       initThread.updatedWeiBalances = [7, 3]
@@ -1150,13 +1145,13 @@ contract("ChannelManager", accounts => {
       initChannel.weiBalances = [0, 0]
       initChannel.pendingWeiUpdates = [200, 0, 50, 0]
       initChannel.txCount = [1, 1]
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
       await userAuthorizedUpdate(initChannel, performer, 50)
       initChannel.weiBalances = [190, 50]
       initChannel.pendingWeiUpdates = [0, 0, 0, 0]
       initChannel.txCount = [2, 2]
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, performer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, performer.privateKey)
       await startExitWithUpdate(initChannel, performer.address)
       await moveForwardSecs(config.timeout + 1)
       await channelManager.emptyChannel(performer.address)
@@ -1233,7 +1228,7 @@ contract("ChannelManager", accounts => {
       // get some wei into the channel
       initChannel.user = viewer.address
       initChannel.pendingWeiUpdates = [100, 0, 100, 0]
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
       await userAuthorizedUpdate(initChannel, viewer, 100)
 
       // prepare channel update that contains 2 thread ...
@@ -1269,8 +1264,8 @@ contract("ChannelManager", accounts => {
       initThread.proof = await generateThreadProof(thread1InitialState, [thread1InitialState, thread2InitialState])
       initChannel.threadCount = 2 // well, I guess we could have just faked that number into the channel state, without actually including a second thread in the merkle root
 
-      initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
-      initChannel.sigUser = await updateHash(initChannel, viewer.privateKey)
+      initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      initChannel.sigUser = await signChannelState(initChannel, viewer.privateKey)
 
       await startExitWithUpdate(initChannel, viewer.address)
 

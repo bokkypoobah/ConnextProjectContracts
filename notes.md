@@ -19,14 +19,24 @@ Client
   - are they up to date?
 - how good are the tests?
   - how are they conducted?
+    - ?
   - what is tested?
+    - Actual client method tests are skipped
   - how much overlap is there with the contract tests?
+    - ?
+- decouple signing from generating state updates
+  - createThreadStateUpdate
+  - createChannelStateUpdate
+- why does closeThread hit the API endpoint (getThreadByParties?)
 
 Client Architecture
 - Core Data Structure
   - constructor (web3, db, ChannelManager, token, hub)
     - this part exists and is good
     - why is Validation its own object?
+      - Hub and Wallet were having trouble importing them
+      - Rahul wanted to import Validation separately
+      - Utils is inspired by web3.utils
   - channel instance
     - current state
     - previous state
@@ -44,7 +54,7 @@ Client Architecture
       - probably best as its own lib within the repo
   - instance methods (use static methods)
     - more geared towards wallet
-      - keep user's channel in memory
+      - keep user's channel in local storage / memory
     - also helps for contract testing
     - might help for hub testing as well
   - persistance?
@@ -64,7 +74,10 @@ Client Architecture
     - e.g. POST to open thread w/ updated channel state (to include new thread)
       and initial thread state
   - Authentication
-    - ???
+    - checking signatures on state objects themselves
+    - TODO figure out how auth is done when sending unsigned payloads (e.g.
+      request collateral)
+    - TODO are there sessions?
   - Channel Endpoints
     - POST request deposit/withdrawal/exchange/collateral
     - POST update
@@ -83,7 +96,7 @@ Client Architecture
 - ChannelManager.sol wrapper
   - execute contract calls using local instance data
     - e.g.
-- Watcher
+- Watcher (BACKLOG)
   - listen on contract events and respond / alert
   - optional
     - hub has chainsaw
@@ -94,9 +107,42 @@ Hub
 - doesnt use connext client except for some static util functions
 
 Wallet
-- need to find out how open
 
 Contract Tests
 - need to rewrite ffStartThread -> beforeEach
-- use connext methods for openThread
+- inside of ffStartThread, replace with new instance of Connext client
+  - use connext methods for openThread
+
+Call With Layne 11/24
+- Objectives
+  - Full code review of Connext client and tests
+  - Write tests for 54 withdrawal cases
+  - docs are at docs.connext.network, but are out of date
+  - testing
+    - hub api wrapper
+      - doesn't make sense to mock
+        - would need to test request payload + handling response range
+      - probably best to do integration
+        - Wallet -> Hub
+    - validation
+      - unit testing in isolation
+    - utils
+      - unit testing in isolation
+    - contract stuff
+      - ??? maybe combine with actual contract tests
+  - decouple signing from generating state updates
+    - createThreadStateUpdate
+    - createChannelStateUpdate
+  - where / when does an instance update its internal state?
+    - so far I don't see it doing so
+    - TODO decide if wallet / client should manage state
+  - why does closeThread hit the API endpoint (getThreadByParties?)
+    - by relying on the hub for state, it allows the hub to lie
+      - for multi-device we still rely on the hub for state
+      - BUT, we want to be careful about HOW we get state
+      - Ideally always through *sync* method
+
+
+
+
 
