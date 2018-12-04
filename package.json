@@ -27,6 +27,7 @@
   },
   "homepage": "https://github.com/ConnextProject/contracts#readme",
   "dependencies": {
+    "@spankchain/connext-client": "0.0.1",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "chai-bignumber": "^2.0.2",
