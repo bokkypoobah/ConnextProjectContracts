@@ -2,6 +2,7 @@
 const should = require("chai")
 const Connext = require("../client/dist/Utils.js");
 const HttpProvider = require("ethjs-provider-http")
+const ethjsUtil = require('ethereumjs-util')
 const EthRPC = require("ethjs-rpc")
 const config = require("./config.json")
 const Utils = require("./helpers/utils");
@@ -78,16 +79,16 @@ function getEventParams(tx, event) {
 
 async function makeHash(state) {
   return await web3.utils.soliditySha3(
-    channelManager.address,
-    {type: 'address[2]', value: [data.user, data.recipient]},
-    {type: 'uint256[2]', value: data.weiBalances},
-    {type: 'uint256[2]', value: data.tokenBalances},
-    {type: 'uint256[4]', value: data.pendingWeiUpdates},
-    {type: 'uint256[4]', value: data.pendingTokenUpdates},
-    {type: 'uint256[2]', value: data.txCount},
-    {type: 'bytes32', value: data.threadRoot},
-    data.threadCount,
-    data.timeout
+    {type: 'address', value: channelManager.address},
+    {type: 'address[2]', value: [state.user, state.recipient]},
+    {type: 'uint256[2]', value: state.weiBalances},
+    {type: 'uint256[2]', value: state.tokenBalances},
+    {type: 'uint256[4]', value: state.pendingWeiUpdates},
+    {type: 'uint256[4]', value: state.pendingTokenUpdates},
+    {type: 'uint256[2]', value: state.txCount},
+    {type: 'bytes32', value: state.threadRoot},
+    {type: 'uint256', value: state.threadCount},
+    {type: 'uint256', value: state.timeout}
   )
 }
 
@@ -580,6 +581,8 @@ contract("ChannelManager", accounts => {
     it.only("happy case", async () => {
       initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
       const addr = recover(initChannel, initChannel.sigHub)
+      console.log(initChannel)
+      console.log(hub.address)
       console.log(addr)
       await userAuthorizedUpdate(initChannel, performer)
     })
