@@ -76,6 +76,21 @@ function getEventParams(tx, event) {
   return false
 }
 
+async function makeHash(state) {
+  return await web3.utils.soliditySha3(
+    channelManager.address,
+    {type: 'address[2]', value: [data.user, data.recipient]},
+    {type: 'uint256[2]', value: data.weiBalances},
+    {type: 'uint256[2]', value: data.tokenBalances},
+    {type: 'uint256[4]', value: data.pendingWeiUpdates},
+    {type: 'uint256[4]', value: data.pendingTokenUpdates},
+    {type: 'uint256[2]', value: data.txCount},
+    {type: 'bytes32', value: data.threadRoot},
+    data.threadCount,
+    data.timeout
+  )
+}
+
 // TODO why is this called updateHash?
 // - should be called signHash
 async function updateHash(data, privateKey) {
@@ -142,6 +157,29 @@ async function hubAuthorizedUpdate(data) {
     data.sigUser,
     {from: hub.address}
   )
+}
+
+function recover(state, sig) {
+  let fingerprint = makeHash(state)
+  fingerprint = ethjsUtil.toBuffer(String(fingerprint))
+  const prefix = ethjsUtil.toBuffer('\x19Ethereum Signed Message:\n')
+  const prefixedMsg = ethjsUtil.keccak256(
+    Buffer.concat([
+      prefix,
+      ethjsUtil.toBuffer(String(fingerprint.length)),
+      fingerprint,
+    ]),
+  )
+  const res = ethjsUtil.fromRpcSig(sig)
+  const pubKey = ethjsUtil.ecrecover(
+    ethjsUtil.toBuffer(prefixedMsg),
+    res.v,
+    res.r,
+    res.s,
+  )
+  const addrBuf = ethjsUtil.pubToAddress(pubKey)
+  const addr = ethjsUtil.bufferToHex(addrBuf)
+  return addr
 }
 
 async function userAuthorizedUpdate(data, user, wei=0) {
@@ -539,8 +577,10 @@ contract("ChannelManager", accounts => {
   })
 
   describe('userAuthorizedUpdate', () => {
-    it("happy case", async () => {
+    it.only("happy case", async () => {
       initChannel.sigHub = await updateHash(initChannel, hub.privateKey)
+      const addr = recover(initChannel, initChannel.sigHub)
+      console.log(addr)
       await userAuthorizedUpdate(initChannel, performer)
     })
 
