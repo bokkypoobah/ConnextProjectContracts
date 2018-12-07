@@ -70,8 +70,7 @@ function getEventParams(tx, event) {
 }
 
 
-async function getSignedState(state, account, isUser=true) {
-  console.log(state)
+async function getSig(state, account) {
   const hash = await web3.utils.soliditySha3(
     cm.address,
     {type: 'address[2]', value: [state.user, state.recipient]},
@@ -85,11 +84,7 @@ async function getSignedState(state, account, isUser=true) {
     state.timeout
   )
   const { signature } = await web3.eth.accounts.sign(hash, account.pk)
-  return {
-    ...state,
-    sigUser: isUser ? signature : state.sigUser || '',
-    sigHub: !isUser ? signature : state.sigHub || ''
-  }
+  return signature
 }
 
 async function userAuthorizedUpdate(state, account, wei=0) {
@@ -138,16 +133,16 @@ contract("ChannelManager", accounts => {
     snapshotId = await snapshot()
 
     state = {
-      user: performer.address,
-      recipient: performer.address,
-      weiBalances: [0, 0],
-      tokenBalances: [0, 0],
-      pendingWeiUpdates: [0, 0, 0, 0],
-      pendingTokenUpdates: [0, 0, 0, 0],
-      txCount: [1, 1],
-      threadRoot: emptyRootHash,
-      threadCount: 0,
-      timeout: 0
+      "user": viewer.address,
+      "recipient": viewer.address,
+      "weiBalances": [0, 0],
+      "tokenBalances": [0, 0],
+      "pendingWeiUpdates": [0, 0, 0, 0],
+      "pendingTokenUpdates": [0, 0, 0, 0],
+      "txCount": [1, 1],
+      "threadRoot": emptyRootHash,
+      "threadCount": 0,
+      "timeout": 0
     }
   })
 
@@ -226,22 +221,28 @@ contract("ChannelManager", accounts => {
     it.only('deposit wei', async () => {
       // TODO use proposePendingDeposit
       // const update = sg.proposePendingDeposit(state, { depositWeiUser: 1 })
+      state.pendingWeiUpdates = [0, 0, 1, 0] // user deposit
+      state.txCount = [1, 1]
+      state.timeout = minutesFromNow(5)
+
       const update = {
         ...state,
-        pendingWeiUpdates: [0, 0, 1, 0], // user deposit
+        pendingWeiUpdates: [0, 0, 1, 0],
         txCount: [1, 1],
         timeout: minutesFromNow(5)
       }
-      const signedUpdate = await getSignedState(update, hub, false)
-      // await userAuthorizedUpdate(signedUpdate, viewer, 1)
+      console.log(state)
+      console.log(update)
+
+      // state.sigHub = await getSig(state, hub)
+      // await userAuthorizedUpdate(state, viewer, 1)
+
+      update.sigHub = await getSig(update, hub)
+      await userAuthorizedUpdate(update, viewer, 1)
 
       // const signerAddress = Utils.recoverSignerFromChannelState()
       // const channel = await cm.channels.call(viewer.address)
-
-      const oldWaySig = await updateHash(update, hub.pk)
-      console.log(signedUpdate.sigHub)
-      console.log(hub.address)
-      console.log(recover(signedUpdate, state.sigHub))
+      // const oldWaySig = await updateHash(update, hub.pk)
     })
 
     function recover(state, sig) {
@@ -306,6 +307,10 @@ contract("ChannelManager", accounts => {
     // sign from hub
   })
 })
+
+// 0x328de7f0e27a62c0569176441c73c22ccba6b67fed60bab3477d5afc10272a5201ac3d593617ba4081dacf6304035333e1bc1c3962977a68595b7d0c7aa59a281b
+//0x6046f0fcff15e57096c8e064e543b8bbe459786effff655be51e84f1e2c68777760bfa0e510615631b35df9823ceb35da11af00468fb595dc9d6bcebf38cffa71b
+// signatures are the same length...wtf
 
 // https://github.com/ConnextProject/contracts/blob/master/docs/aggregateUpdates.md
 // 1. user deposit

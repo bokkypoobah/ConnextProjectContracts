@@ -1,7 +1,8 @@
 "use strict";
 const should = require("chai")
-const Connext = require("../client/dist/Utils.js");
+// const Connext = require("../client/dist/Utils.js");
 const HttpProvider = require("ethjs-provider-http")
+const ethjsUtil = require('ethereumjs-util')
 const EthRPC = require("ethjs-rpc")
 const config = require("./config.json")
 const Utils = require("./helpers/utils");
@@ -57,13 +58,7 @@ async function moveForwardSecs(secs) {
   return true
 }
 
-async function generateThreadProof(threadHashToProve, threadInitStates) {
-  return await Connext.Utils.generateThreadProof(threadHashToProve, threadInitStates)
-}
 
-async function generateThreadRootHash(threadInitStates){
-  return await Connext.Utils.generateThreadRootHash(threadInitStates)
-}
 
 function getEventParams(tx, event) {
   if (tx.logs.length > 0) {
@@ -283,6 +278,7 @@ contract("ChannelManager", accounts => {
       address: accounts[0],
       privateKey: privKeys[0]
     }
+    console.log(hub)
     performer = {
       address: accounts[1],
       privateKey: privKeys[1]
@@ -324,6 +320,7 @@ contract("ChannelManager", accounts => {
       "balanceTokenReceiver": 0,
       "txCount": 0
     }
+    /*
     initThread = {
       "user": viewer.address,
       "sender": viewer.address,
@@ -338,7 +335,7 @@ contract("ChannelManager", accounts => {
       "proof": await generateThreadProof(dummyThreadState, [dummyThreadState]),
       "sig": "0x0",
       "updateSig": "0x0"
-    }
+    }*/
   })
 
   afterEach(async () => {
@@ -533,9 +530,11 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  describe('userAuthorizedUpdate', () => {
+  describe.only('userAuthorizedUpdate', () => {
     it("happy case", async () => {
       initChannel.sigHub = await signChannelState(initChannel, hub.privateKey)
+      console.log(await recover(initChannel, initChannel.sigHub))
+      console.log(hub.address)
       await userAuthorizedUpdate(initChannel, performer)
     })
 
@@ -1371,3 +1370,49 @@ contract("ChannelManager", accounts => {
     })
   })
 })
+
+async function recover(state, sig) {
+  let fingerprint = await makeHash(state)
+  console.log('og hash')
+  console.log(fingerprint)
+  fingerprint = ethjsUtil.toBuffer(String(fingerprint))
+  console.log('buffer fingerprint')
+  console.log(fingerprint)
+  const prefix = ethjsUtil.toBuffer('\x19Ethereum Signed Message:\n')
+  const prefixedMsg = ethjsUtil.keccak256(
+    Buffer.concat([
+      prefix,
+      ethjsUtil.toBuffer(String(fingerprint.length)),
+      fingerprint,
+    ]),
+  )
+  console.log('prefixed')
+  console.log(prefixedMsg)
+  const res = ethjsUtil.fromRpcSig(sig)
+  const pubKey = ethjsUtil.ecrecover(
+    // ethjsUtil.toBuffer(prefixedMsg),
+    fingerprint,
+    res.v,
+    res.r,
+    res.s,
+  )
+  const addrBuf = ethjsUtil.pubToAddress(pubKey)
+  const addr = ethjsUtil.bufferToHex(addrBuf)
+  return addr
+}
+
+async function makeHash(data) {
+  const hash = await web3.utils.soliditySha3(
+    channelManager.address,
+    {type: 'address[2]', value: [data.user, data.recipient]},
+    {type: 'uint256[2]', value: data.weiBalances},
+    {type: 'uint256[2]', value: data.tokenBalances},
+    {type: 'uint256[4]', value: data.pendingWeiUpdates},
+    {type: 'uint256[4]', value: data.pendingTokenUpdates},
+    {type: 'uint256[2]', value: data.txCount},
+    {type: 'bytes32', value: data.threadRoot},
+    data.threadCount,
+    data.timeout
+  )
+  return hash
+}
