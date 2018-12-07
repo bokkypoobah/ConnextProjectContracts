@@ -1,6 +1,7 @@
 const should = require("chai")
 const HttpProvider = require("ethjs-provider-http")
 const EthRPC = require("ethjs-rpc")
+const ethjsUtil = require('ethereumjs-util')
 const { StateGenerator } = require('@spankchain/connext-client/dist/StateGenerator')
 const { makeSuccinctChannel } = require('@spankchain/connext-client/dist/testing/index')
 const { Utils } = require('@spankchain/connext-client/dist/Utils')
@@ -232,11 +233,55 @@ contract("ChannelManager", accounts => {
         timeout: minutesFromNow(5)
       }
       const signedUpdate = await getSignedState(update, hub, false)
-      await userAuthorizedUpdate(signedUpdate, viewer, 1)
+      // await userAuthorizedUpdate(signedUpdate, viewer, 1)
+
+      // const signerAddress = Utils.recoverSignerFromChannelState()
       // const channel = await cm.channels.call(viewer.address)
 
       const oldWaySig = await updateHash(update, hub.pk)
+      console.log(signedUpdate.sigHub)
+      console.log(hub.address)
+      console.log(recover(signedUpdate, state.sigHub))
     })
+
+    function recover(state, sig) {
+      let fingerprint = makeHash(state)
+      fingerprint = ethjsUtil.toBuffer(String(fingerprint))
+      const prefix = ethjsUtil.toBuffer('\x19Ethereum Signed Message:\n')
+      const prefixedMsg = ethjsUtil.keccak256(
+        Buffer.concat([
+          prefix,
+          ethjsUtil.toBuffer(String(fingerprint.length)),
+          fingerprint,
+        ]),
+      )
+      const res = ethjsUtil.fromRpcSig(sig)
+      const pubKey = ethjsUtil.ecrecover(
+        ethjsUtil.toBuffer(prefixedMsg),
+        res.v,
+        res.r,
+        res.s,
+      )
+      const addrBuf = ethjsUtil.pubToAddress(pubKey)
+      const addr = ethjsUtil.bufferToHex(addrBuf)
+      return addr
+    }
+
+    async function makeHash (state) {
+      const hash = await web3.utils.soliditySha3(
+        cm.address,
+        {type: 'address[2]', value: [state.user, state.recipient]},
+        {type: 'uint256[2]', value: state.weiBalances},
+        {type: 'uint256[2]', value: state.tokenBalances},
+        {type: 'uint256[4]', value: state.pendingWeiUpdates},
+        {type: 'uint256[4]', value: state.pendingTokenUpdates},
+        {type: 'uint256[2]', value: state.txCount},
+        {type: 'bytes32', value: state.threadRoot},
+        state.threadCount,
+        state.timeout
+      )
+      return hash
+    }
 
     async function updateHash(data, privateKey) {
       const hash = await web3.utils.soliditySha3(
