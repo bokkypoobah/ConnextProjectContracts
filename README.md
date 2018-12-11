@@ -346,6 +346,11 @@ A thread is opened by reducing the channel balances in the parties' respective c
     5. Then, the viewer is able to tip the performer by generating new thread states in a similar format to the initial thread state above.
 
 Threads are closed offchain following the same procedure but in reverse. First, the viewer submits a channel update reintroducing the final thread balances and removing the thread initial state from thread root to the hub.
+<<<<<<< HEAD
+=======
+
+//TODO: Check the diagram for close thread consistency. What happens if Alice closes the thread offchain and then Bob disputes it before countersigning the hub's offchain update?
+>>>>>>> c1e23937daf93294e5e7e6e74db9549186eb3c4a
 
 ## ThreadIDs
 
@@ -1145,6 +1150,7 @@ function challengeThread(
 ```
 ## emptyThread
 
+<<<<<<< HEAD
 Called by any party when the thread dispute timer expires. Uses the latest available onchain state to transfer values. Corollary is `emptyChannel`. Note: this can be called twice per thread; once for each channel.
 
 1. Verifies that the channel state is in `ThreadDispute`.
@@ -1159,6 +1165,16 @@ Called by any party when the thread dispute timer expires. Uses the latest avail
 10. Deducts the onchain thread balances from the global total onchain channel balances (i.e. moves balances back into the hub's reserve) and then transfers onchain thread balances to their respective owners. Note: state is not zeroed out here in order to allow for the other party to call `emptyThread` if needed.
 11. Records that the thread has been emptied for this user's channel which stops reentry of this function.
 12. Decrements the thread count and if the thread count is zero, reopens the channel, reinitializes `threadRoot`, and resets dispute fields.
+=======
+Called by any party when the thread dispute timer expires. Uses the latest available onchain state to transfer values. Corollary is `emptyChannel`.
+
+1. Verifies that the channel state is in `ThreadDispute` and that the thread closing time for the provided user has expired.
+2. Verifies that the thread is exiting. No need to verify anything else since we just use already verified onchain state.
+3. Deducts the onchain thread balances from the onchain channel balances for the provided user's channel.
+4. Deducts the onchain thread balances from the global total onchain channel balances (i.e. moves balances back into the hub's reserve) and then transfers onchain thread balances to their respective owners. Note: state is not zeroed out here in order to allow for `exitSettledThread` to be called by thread counterparty in the event of a separate dispute in the counterparty's channel.
+5. Updates the thread's status to `Settled` which stops reentry to this function.
+6. Decrements the thread count and if the thread count is zero, reopens the channel, reinitializes `threadRoot`, and resets dispute fields.
+>>>>>>> c1e23937daf93294e5e7e6e74db9549186eb3c4a
 ```
 function emptyThread(
     address user,
