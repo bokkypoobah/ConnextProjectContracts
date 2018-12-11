@@ -63,8 +63,8 @@ contract ChannelManager {
     }
 
     struct Channel {
-        uint256[3] weiBalances; // [hub, user, total]
-        uint256[3] tokenBalances; // [hub, user, total]
+        uint256[2] weiBalances; // [hub, user]
+        uint256[2] tokenBalances; // [hub, user]
         uint256[2] txCount; // persisted onchain even when empty [global, pending]
         address exitInitiator;
         uint256 channelClosingTime;
@@ -505,7 +505,7 @@ contract ChannelManager {
     }
 
     function _applyPendingUpdates(
-        uint256[3] storage channelBalances,
+        uint256[2] storage channelBalances,
         uint256[2] balances,
         uint256[4] pendingUpdates
     ) internal {
@@ -533,7 +533,7 @@ contract ChannelManager {
     }
 
     function _revertPendingUpdates(
-        uint256[3] storage channelBalances,
+        uint256[2] storage channelBalances,
         uint256[2] balances,
         uint256[4] pendingUpdates
     ) internal {
