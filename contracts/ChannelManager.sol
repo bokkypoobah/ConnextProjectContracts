@@ -649,14 +649,8 @@ contract ChannelManager {
         // *********************
 
         require(updatedTxCount > 0, "updated thread txCount must be higher than 0");
-        require(updatedWeiBalances[0].add(updatedWeiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
-        require(updatedTokenBalances[0].add(updatedTokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
-
-        require(
-          updatedWeiBalances[1] >  weiBalances[1] && updatedTokenBalances[1] >= tokenBalances[1] ||
-          updatedWeiBalances[1] >= weiBalances[1] && updatedTokenBalances[1] >  tokenBalances[1],
-          "receiver balances may never decrease and either wei or token balance must strictly increase"
-        );
+        require(updatedWeiBalances[0].add(updatedWeiBalances[1]) == weiBalances[0], "sum of updated wei balances must match sender's initial wei balance");
+        require(updatedTokenBalances[0].add(updatedTokenBalances[1]) == tokenBalances[0], "sum of updated token balances must match sender's initial token balance");
 
         // Note: explicitly set threadRoot == 0x0 because then it doesn't get checked by _isContained (updated state is not part of root)
         _verifyThread(threadMembers[0], threadMembers[1], threadId, updatedWeiBalances, updatedTokenBalances, updatedTxCount, "", updateSig, bytes32(0x0));
@@ -699,11 +693,7 @@ contract ChannelManager {
         require(weiBalances[0].add(weiBalances[1]) == thread.weiBalances[0].add(thread.weiBalances[1]), "updated wei balances must match sum of thread wei balances");
         require(tokenBalances[0].add(tokenBalances[1]) == thread.tokenBalances[0].add(thread.tokenBalances[1]), "updated token balances must match sum of thread token balances");
 
-        require(
-          weiBalances[1] >  thread.weiBalances[1] && tokenBalances[1] >= thread.tokenBalances[1] ||
-          weiBalances[1] >= thread.weiBalances[1] && tokenBalances[1] >  thread.tokenBalances[1],
-          "receiver balances may never decrease and either wei or token balance must strictly increase"
-        );
+        require(weiBalances[1] >= thread.weiBalances[1] && tokenBalances[1] >= thread.tokenBalances[1], "receiver balances may never decrease");
 
         // Note: explicitly set threadRoot == 0x0 because then it doesn't get checked by _isContained (updated state is not part of root)
         _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, txCount, "", sig, bytes32(0x0));
@@ -737,7 +727,7 @@ contract ChannelManager {
     ) public noReentrancy {
         Channel storage channel = channels[user];
         require(channel.status == ChannelStatus.ThreadDispute, "channel must be in thread dispute");
-        require(msg.sender == hub || msg.sender == user, "thread exit initiator must be user or hub");
+        require(msg.sender == hub || msg.sender == user, "only hub or user can empty thread");
         require(user == sender || user == receiver, "user must be thread sender or receiver");
 
         require(weiBalances[1] == 0 && tokenBalances[1] == 0, "initial receiver balances must be zero");
@@ -745,7 +735,7 @@ contract ChannelManager {
         Thread storage thread = threads[sender][receiver][threadId];
 
         // We check to make sure that the thread state has been finalized
-        require(thread.threadClosingTime < now, "Thread closing time must have passed");
+        require(thread.threadClosingTime != 0 && thread.threadClosingTime < now, "Thread closing time must have passed");
 
         // Make sure user has not emptied before
         require(!thread.emptied[user == sender ? 0 : 1], "user cannot empty twice");
@@ -753,10 +743,8 @@ contract ChannelManager {
         // verify initial thread state.
         _verifyThread(sender, receiver, threadId, weiBalances, tokenBalances, 0, proof, sig, channel.threadRoot);
 
-        require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0].add(weiBalances[1]), "updated wei balances must match sum of initial wei balances");
-        require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0].add(tokenBalances[1]), "updated token balances must match sum of initial token balances");
-
-        require(thread.weiBalances[1] >= weiBalances[1] && thread.tokenBalances[1] >= tokenBalances[1], "receiver balances may never decrease");
+        require(thread.weiBalances[0].add(thread.weiBalances[1]) == weiBalances[0], "sum of thread wei balances must match sender's initial wei balance");
+        require(thread.tokenBalances[0].add(thread.tokenBalances[1]) == tokenBalances[0], "sum of thread token balances must match sender's initial token balance");
 
         // deduct sender/receiver wei/tokens about to be emptied from the thread from the total channel balances
         channel.weiBalances[2] = channel.weiBalances[2].sub(thread.weiBalances[0]).sub(thread.weiBalances[1]);
@@ -1085,4 +1073,45 @@ contract ChannelManager {
 
         return cursor == _root;
     }
+
+    function getChannelBalances(address user) constant public returns (
+        uint256 weiHub,
+        uint256 weiUser,
+        uint256 weiTotal,
+        uint256 tokenHub,
+        uint256 tokenUser,
+        uint256 tokenTotal
+    ) {
+        Channel memory channel = channels[user];
+        return (
+            channel.weiBalances[0],
+            channel.weiBalances[1],
+            channel.weiBalances[2],
+            channel.tokenBalances[0],
+            channel.tokenBalances[1],
+            channel.tokenBalances[2]
+        );
+    }
+
+    function getChannelDetails(address user) constant public returns (
+        uint256 txCountGlobal,
+        uint256 txCountChain,
+        bytes32 threadRoot,
+        uint256 threadCount,
+        address exitInitiator,
+        uint256 channelClosingTime,
+        ChannelStatus status
+    ) {
+        Channel memory channel = channels[user];
+        return (
+            channel.txCount[0],
+            channel.txCount[1],
+            channel.threadRoot,
+            channel.threadCount,
+            channel.exitInitiator,
+            channel.channelClosingTime,
+            channel.status
+        );
+    }
+
 }

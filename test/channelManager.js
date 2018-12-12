@@ -1,11 +1,7 @@
 const should = require("chai")
 const HttpProvider = require("ethjs-provider-http")
-const EthRPC = require("ethjs-rpc")
 const ethjsUtil = require('ethereumjs-util')
-const { StateGenerator } = require('@spankchain/connext-client/dist/StateGenerator')
-const { makeSuccinctChannel } = require('@spankchain/connext-client/dist/testing/index')
-const { Utils } = require('@spankchain/connext-client/dist/Utils')
-const { addSigToChannelState } = require('@spankchain/connext-client/dist/types')
+const EthRPC = require("ethjs-rpc")
 const privKeys = require("./privKeys.json")
 const CM = artifacts.require("./ChannelManager.sol")
 const HST = artifacts.require("./HumanStandardToken.sol")
@@ -17,6 +13,8 @@ should.use(require("chai-as-promised")).should()
 const ethRPC = new EthRPC(new HttpProvider('http://localhost:8545'))
 const emptyRootHash =
   "0x0000000000000000000000000000000000000000000000000000000000000000"
+
+const emptyAddress = "0x0000000000000000000000000000000000000000"
 
 const SolRevert = 'VM Exception while processing transaction: revert'
 
@@ -70,8 +68,8 @@ function getEventParams(tx, event) {
 }
 
 async function hashState (state) {
-  const hash = await web3.utils.soliditySha3(
-    cm.address,
+  return await web3.utils.soliditySha3(
+    {type: 'address', value: cm.address},
     {type: 'address[2]', value: [state.user, state.recipient]},
     {type: 'uint256[2]', value: state.weiBalances},
     {type: 'uint256[2]', value: state.tokenBalances},
@@ -79,10 +77,9 @@ async function hashState (state) {
     {type: 'uint256[4]', value: state.pendingTokenUpdates},
     {type: 'uint256[2]', value: state.txCount},
     {type: 'bytes32', value: state.threadRoot},
-    state.threadCount,
-    state.timeout
+    {type: 'uint256', value: state.threadCount},
+    {type: 'uint256', value: state.timeout}
   )
-  return hash
 }
 
 async function getSig(state, account) {
@@ -91,7 +88,7 @@ async function getSig(state, account) {
 }
 
 async function userAuthorizedUpdate(state, account, wei=0) {
-  await cm.userAuthorizedUpdate(
+  return await cm.userAuthorizedUpdate(
     state.recipient,
     state.weiBalances,
     state.tokenBalances,
@@ -105,9 +102,6 @@ async function userAuthorizedUpdate(state, account, wei=0) {
     {from: account.address, value: wei}
   )
 }
-
-let sg = new StateGenerator()
-let utils = new Utils()
 
 let cm, token, hub, performer, viewer, state
 
@@ -222,9 +216,6 @@ contract("ChannelManager", accounts => {
 
   describe("userAuthorizedUpdate", () => {
     it.only('deposit wei', async () => {
-      // TODO use proposePendingDeposit
-      // const update2 = sg.proposePendingDeposit(state, { depositWeiUser: 1 })
-
       const update = {
         ...state,
         pendingWeiUpdates: [0, 0, 1, 0],
@@ -233,7 +224,51 @@ contract("ChannelManager", accounts => {
       }
 
       update.sigHub = await getSig(update, hub)
-      await userAuthorizedUpdate(update, viewer, 1)
+      const tx = await userAuthorizedUpdate(update, viewer, 1)
+
+      // const channel = await cm.channels.call(viewer.address)
+      const channelBalances = await cm.getChannelBalances(viewer.address)
+      const channelDetails = await cm.getChannelDetails(viewer.address)
+      assert.equal(+channelBalances.weiHub, 0)
+      assert.equal(+channelBalances.weiUser, 1)
+      assert.equal(+channelBalances.weiTotal, 1)
+      assert.equal(+channelBalances.tokenHub, 0)
+      assert.equal(+channelBalances.tokenUser, 0)
+      assert.equal(+channelBalances.tokenTotal, 0)
+      assert.equal(+channelDetails.txCountGlobal, 1)
+      assert.equal(+channelDetails.txCountChain, 1)
+      assert.equal(channelDetails.threadRoot, emptyRootHash)
+      assert.equal(channelDetails.threadCount, 0)
+      assert.equal(channelDetails.exitInitiator, emptyAddress)
+      assert.equal(+channelDetails.status, 0)
+
+      const parseBNArr = (BNArray) => {
+        return BNArray.map(a => +a)
+      }
+
+      const event = getEventParams(tx, 'DidUpdateChannel')
+      assert.equal(event.user, viewer.address)
+      assert.equal(event.senderIdx, 1)
+      assert.deepEqual(parseBNArr(event.weiBalances), [0, 0])
+      assert.deepEqual(parseBNArr(event.tokenBalances), [0, 0])
+      assert.deepEqual(parseBNArr(event.pendingWeiUpdates), [0, 0, 1, 0])
+      assert.deepEqual(parseBNArr(event.pendingTokenUpdates), [0, 0, 0, 0])
+      assert.deepEqual(parseBNArr(event.txCount), [1, 1])
+      assert.equal(event.threadRoot, emptyRootHash)
+      assert.equal(event.threadCount, 0)
+
+      // 1. channelBalances (wei / token)
+      // 2. totalChannelWei
+      // 3. totalChannelToken
+      // 4. channel.weiBalances[2]
+      // 5. channel.tokenBalances[2]
+      // 6. recipient ether balance
+      // 7. recipient token balance
+      // 8. contract eth/token balance (reserve)
+      // 9. txCount
+      // 10. threadRoot
+      // 11. threadCount
+      // 12. event
     })
   })
 })
