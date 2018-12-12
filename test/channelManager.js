@@ -242,6 +242,12 @@ contract("ChannelManager", accounts => {
       assert.equal(channelDetails.exitInitiator, emptyAddress)
       assert.equal(+channelDetails.status, 0)
 
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 1)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, 0)
+
       const parseBNArr = (BNArray) => {
         return BNArray.map(a => +a)
       }
@@ -256,19 +262,6 @@ contract("ChannelManager", accounts => {
       assert.deepEqual(parseBNArr(event.txCount), [1, 1])
       assert.equal(event.threadRoot, emptyRootHash)
       assert.equal(event.threadCount, 0)
-
-      // 1. channelBalances (wei / token)
-      // 2. totalChannelWei
-      // 3. totalChannelToken
-      // 4. channel.weiBalances[2]
-      // 5. channel.tokenBalances[2]
-      // 6. recipient ether balance
-      // 7. recipient token balance
-      // 8. contract eth/token balance (reserve)
-      // 9. txCount
-      // 10. threadRoot
-      // 11. threadCount
-      // 12. event
     })
   })
 })
