@@ -69,8 +69,7 @@ function getEventParams(tx, event) {
   return false
 }
 
-
-async function getSig(state, account) {
+async function hashState (state) {
   const hash = await web3.utils.soliditySha3(
     cm.address,
     {type: 'address[2]', value: [state.user, state.recipient]},
@@ -83,7 +82,11 @@ async function getSig(state, account) {
     state.threadCount,
     state.timeout
   )
-  const { signature } = await web3.eth.accounts.sign(hash, account.pk)
+  return hash
+}
+
+async function getSig(state, account) {
+  const { signature } = await web3.eth.accounts.sign(await hashState(state), account.pk)
   return signature
 }
 
@@ -220,10 +223,7 @@ contract("ChannelManager", accounts => {
   describe("userAuthorizedUpdate", () => {
     it.only('deposit wei', async () => {
       // TODO use proposePendingDeposit
-      // const update = sg.proposePendingDeposit(state, { depositWeiUser: 1 })
-      state.pendingWeiUpdates = [0, 0, 1, 0] // user deposit
-      state.txCount = [1, 1]
-      state.timeout = minutesFromNow(5)
+      // const update2 = sg.proposePendingDeposit(state, { depositWeiUser: 1 })
 
       const update = {
         ...state,
@@ -231,86 +231,12 @@ contract("ChannelManager", accounts => {
         txCount: [1, 1],
         timeout: minutesFromNow(5)
       }
-      console.log(state)
-      console.log(update)
-
-      // state.sigHub = await getSig(state, hub)
-      // await userAuthorizedUpdate(state, viewer, 1)
 
       update.sigHub = await getSig(update, hub)
       await userAuthorizedUpdate(update, viewer, 1)
-
-      // const signerAddress = Utils.recoverSignerFromChannelState()
-      // const channel = await cm.channels.call(viewer.address)
-      // const oldWaySig = await updateHash(update, hub.pk)
     })
-
-    function recover(state, sig) {
-      let fingerprint = makeHash(state)
-      fingerprint = ethjsUtil.toBuffer(String(fingerprint))
-      const prefix = ethjsUtil.toBuffer('\x19Ethereum Signed Message:\n')
-      const prefixedMsg = ethjsUtil.keccak256(
-        Buffer.concat([
-          prefix,
-          ethjsUtil.toBuffer(String(fingerprint.length)),
-          fingerprint,
-        ]),
-      )
-      const res = ethjsUtil.fromRpcSig(sig)
-      const pubKey = ethjsUtil.ecrecover(
-        ethjsUtil.toBuffer(prefixedMsg),
-        res.v,
-        res.r,
-        res.s,
-      )
-      const addrBuf = ethjsUtil.pubToAddress(pubKey)
-      const addr = ethjsUtil.bufferToHex(addrBuf)
-      return addr
-    }
-
-    async function makeHash (state) {
-      const hash = await web3.utils.soliditySha3(
-        cm.address,
-        {type: 'address[2]', value: [state.user, state.recipient]},
-        {type: 'uint256[2]', value: state.weiBalances},
-        {type: 'uint256[2]', value: state.tokenBalances},
-        {type: 'uint256[4]', value: state.pendingWeiUpdates},
-        {type: 'uint256[4]', value: state.pendingTokenUpdates},
-        {type: 'uint256[2]', value: state.txCount},
-        {type: 'bytes32', value: state.threadRoot},
-        state.threadCount,
-        state.timeout
-      )
-      return hash
-    }
-
-    async function updateHash(data, privateKey) {
-      const hash = await web3.utils.soliditySha3(
-        cm.address,
-        {type: 'address[2]', value: [data.user, data.recipient]},
-        {type: 'uint256[2]', value: data.weiBalances},
-        {type: 'uint256[2]', value: data.tokenBalances},
-        {type: 'uint256[4]', value: data.pendingWeiUpdates},
-        {type: 'uint256[4]', value: data.pendingTokenUpdates},
-        {type: 'uint256[2]', value: data.txCount},
-        {type: 'bytes32', value: data.threadRoot},
-        data.threadCount,
-        data.timeout
-      )
-      const sig = await web3.eth.accounts.sign(hash, privateKey)
-      return sig.signature
-    }
-
-    // user deposit
-    // init channel state
-    // sign from user
-    // sign from hub
   })
 })
-
-// 0x328de7f0e27a62c0569176441c73c22ccba6b67fed60bab3477d5afc10272a5201ac3d593617ba4081dacf6304035333e1bc1c3962977a68595b7d0c7aa59a281b
-//0x6046f0fcff15e57096c8e064e543b8bbe459786effff655be51e84f1e2c68777760bfa0e510615631b35df9823ceb35da11af00468fb595dc9d6bcebf38cffa71b
-// signatures are the same length...wtf
 
 // https://github.com/ConnextProject/contracts/blob/master/docs/aggregateUpdates.md
 // 1. user deposit
