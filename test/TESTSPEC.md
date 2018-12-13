@@ -13,6 +13,8 @@ PUNT => items which will be completed on next release.
 
 ### hubAuthorizedUpdate
 
+Unit: 
+
 Expect
 1. TESTME Fails if `msg.sender` is not hub
     - with TODO
@@ -79,6 +81,23 @@ Expect
 35. TESTME Fails if token transfer for withdrawal fails
     - with "user token withdrawal transfer failed"
     - TODO how could this fail?
+
+Scenario:
+
+1. user deposit
+2. hub deposit
+3. user withdrawal
+4. hub withdrawal
+5. user deposit + hub deposit
+6. user deposit + hub withdrawal
+7. user withdrawal + hub deposit
+8. user withdrawal + hub withdrwal
+9. Performer withdrawal booty -> eth where hub withdraws collateral
+10. user withdrawal booty -> eth where hub withdraws collateral
+11. recipient is different than user
+
+TODO: some of these will be covered by tests 27-34, do we need to test all scenarios?
+TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuthorizedUpdate`. figure out which one
 
 ### userAuthorizedUpdate
 Expect
@@ -149,6 +168,23 @@ Expect
 36. TESTME Fails if token transfer for withdrawal fails
     - with "user token withdrawal transfer failed"
     - TODO how could this fail?
+
+Scenario:
+
+1. user deposit
+2. hub deposit
+3. user withdrawal
+4. hub withdrawal
+5. user deposit + hub deposit
+6. user deposit + hub withdrawal
+7. user withdrawal + hub deposit
+8. user withdrawal + hub withdrwal
+9. Performer withdrawal booty -> eth where hub withdraws collateral
+10. user withdrawal booty -> eth where hub withdraws collateral
+11. recipient is different than user
+
+TODO: some of these will be covered by tests 27-34, do we need to test all scenarios?
+TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuthorizedUpdate`. figure out which one
 
 ## Unilateral Channel Tests
 
