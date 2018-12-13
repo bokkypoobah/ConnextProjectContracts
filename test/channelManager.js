@@ -146,12 +146,19 @@ async function hubAuthorizedUpdate(state, account, wei=0) {
   )
 }
 
-let cm, token, hub, performer, viewer, state, validator
+let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
+  initHubReserveTokens
+
+// TODO - because we're testing the JS, we should also be testing
+// that we properly handle BigNumbers, and use them in our tests
+// Specifically, test the high possible value of uint256
 
 contract("ChannelManager", accounts => {
   let snapshotId
 
-  const verifyUserAuthorizedUpdate = async (account, update, tx) => {
+  // TODO add verification of reserves by including initital reserve values
+
+  const verifyAuthorizedUpdate = async (account, update, tx, isHub) => {
     const confirmed = await validator.generateConfirmPending(update, {
       transactionHash: tx.tx
     })
@@ -161,9 +168,6 @@ contract("ChannelManager", accounts => {
 
     const updateBN = convertChannelState("bn", update)
     const confirmedBN = convertChannelState("bn", confirmed)
-    // TODO - because we're testing the JS, we should also be testing
-    // that we properly handle BigNumbers, and use them in our tests
-    // Specifically, test the high possible value of uint256
 
     // Wei balances are equal
     assert(channelBalances.weiHub.eq(confirmedBN.balanceWeiHub))
@@ -194,8 +198,8 @@ contract("ChannelManager", accounts => {
     assert.equal(channelDetails.status, 0)
 
     const event = getEventParams(tx, 'DidUpdateChannel')
-    assert.equal(event.user, viewer.address)
-    assert.equal(event.senderIdx, 1)
+    assert.equal(event.user, account.address)
+    assert.equal(event.senderIdx, isHub ? 0 : 1)
     assert(event.weiBalances[0].eq(updateBN.balanceWeiHub))
     assert(event.weiBalances[1].eq(updateBN.balanceWeiUser))
     assert(event.tokenBalances[0].eq(updateBN.balanceTokenHub))
@@ -212,6 +216,14 @@ contract("ChannelManager", accounts => {
     assert.equal(+event.txCount[1], update.txCountChain)
     assert.equal(event.threadRoot, emptyRootHash)
     assert.equal(event.threadCount, 0)
+  }
+
+  const verifyUserAuthorizedUpdate = async (account, update, tx) => {
+    await verifyAuthorizedUpdate(account, update, tx, false)
+  }
+
+  const verifyHubAuthorizedUpdate = async (account, update, tx) => {
+    await verifyAuthorizedUpdate(account, update, tx, true)
   }
 
   before('deploy contracts', async () => {
@@ -374,13 +386,49 @@ contract("ChannelManager", accounts => {
 
   describe.only("hubAuthorizedUpdate", () => {
     beforeEach(async () => {
-      const hubReserveToken = 1000
-      const hubReserveWei = 1000
-      await token.transfer(cm.address, hubReserveToken, {from: hub.address})
-      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: hubReserveWei })
+      await token.transfer(cm.address, 1000, {from: hub.address})
+      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 1000 })
+      initHubReserveWei = await cm.getHubReserveWei()
+      initHubReserveTokens = await cm.getHubReserveTokens()
     })
 
     it('hub deposit wei', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 10)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, initHubReserveWei - 10)
+    })
+
+    it('hub deposit tokens', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositTokenHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 10)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      assert.equal(hubReserveTokens, initHubReserveTokens - 10)
+    })
+
+    it('hub deposit wei for user', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiUser: 10
@@ -389,18 +437,31 @@ contract("ChannelManager", accounts => {
       update.sigUser = await getSig(update, viewer)
       const tx = await hubAuthorizedUpdate(update, hub, 0)
 
-    })
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
 
-    it('hub deposit tokens', async () => {
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 10)
 
-    })
-
-    it('hub deposit wei for user', async () => {
-
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, initHubReserveWei - 10)
     })
 
     it('hub deposit tokens for user', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositTokenUser: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
 
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 10)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      assert.equal(hubReserveTokens, initHubReserveTokens - 10)
     })
   })
 
