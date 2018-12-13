@@ -31,7 +31,6 @@
     "@spankchain/connext-client": "0.0.1",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
-    "chai-bignumber": "^2.0.2",
     "chai-subset": "^1.6.0",
     "connext": "^2.5.10",
     "ethjs-provider-http": "^0.1.6",
@@ -43,5 +42,6 @@
   "engines": {
     "node": ">=10",
     "npm": ">=6"
-  }
+  },
+  "devDependencies": {}
 }
