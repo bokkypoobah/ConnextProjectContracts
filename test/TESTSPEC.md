@@ -193,9 +193,78 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 PUNT
 
 
-## ---- Arjun Notes ----
+## ---- Arjun Temporary Notes ----
 
-Internal function fail conditions:
+#### startExit
+
+Test requires
+- Fails if user is hub 
+    - with "user can not be hub"
+- Fails if user is the channel manager
+    - with "user can not be channel manager"
+- Fails if channel is not open
+    - with "channel must be open"
+- Fails if the function is called by someone other than the hub or the passsed in user
+    - with "exit initiator must be user or hub"
+
+Test inputs
+- In what ways can we break user input here?
+    - Can you start exit for a random user?
+        - Would fail require if you aren't the submitted user (or if you aren't the hub)
+        - What happens to the hub if I create a random address and dispute a channel that was never acted on? TODO: asked wolever, we should put this in a ticket and verify it doesnt break the hub.
+    - TODO make sure that user != hub or channel manager address in _all_ functions.
+        - This one is okay, so is any function which calls `_verifySig`
+
+Test states
+- Only internal state that can be manipulated here is channel, which depends on user input
+- We should verify that `exitInitiator`, `channelClosingTime` and `status` are set correctly TESTME
+
+#### startExitWithUpdate
+
+Test requires
+- Fails if channel status is not open
+    - with "channel must be open"
+    - TODO verify that every function can _only_ be called in a specific channel state. Note we should make sure that we use hard "status == X" rather than "status != not(X)"
+- Fails if `msg.sender` is not the hub or the submitted user
+    - with "exit initiator must be user or hub"
+- Fails if `timeout` is nonzero
+    - with "can't start exit with time-sensitive states"
+- all verifysig conditions
+- Fails if `txCount[0]` is not higher than the current `txCount[0]`
+    - with "global txCount must be higher than the current global txCount"
+    - TODO check to make sure that all state comparative functions have this requirement
+- Fails if `txCount[1]` is strictly less than current `txCount[1]`
+    - with "onchain txCount must be higher or equal to the current onchain txCount"
+    - TODO check to make sure that all state comparative functions have this requirement
+- Fails if offchain wei balances exceed onchain wei
+    - with "wei must be conserved"
+- Fails if offchain token balances exceed onchain tokens
+    - with "tokens must be conserved"
+
+Test inputs
+- How can we break user?
+    - TODO verify that recipient is used correctly everywhere
+    - TESTME test where recipient != user
+    - what happens if you submit the wrong user? 
+        - either you fail msg.sender == user
+        - or you're hub
+        - or you don't actually have anything in the channel because you're using a random address. See notes in startexit section
+- How can we break weiBalances? tokenBalances? 
+    - gets checked in verifySig and "Dont Sign Dumb Shit" validators in client
+- How can we break pending Wei/Token updates?
+    - gets checked in verfiySig and "Dont Sign Dumb Shit" validators in client
+    - note we should enumerate through different states here
+- How can we break txCount and timeout??
+    - same as above
+- How can we break threadRoot and threadCount?
+    - TODO make sure we explicitly require these to be 0/empty on client/hub
+
+Test states
+- Same as for `_applyPendingUpdates`
+- same as for `_revertPendingUpdates`
+- TESTME validate that `txCount`, `threadRoot`, `threadCount`, `exitInitiator`, `channelClosingTime` and `status` are set appropriately in success case.
+
+#### emptyChannelWithChallenge
 
 #### _verifyAuthorizedUpdate
 
