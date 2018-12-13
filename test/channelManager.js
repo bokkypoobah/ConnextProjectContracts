@@ -463,6 +463,34 @@ contract("ChannelManager", accounts => {
       const hubReserveTokens = await cm.getHubReserveTokens()
       assert.equal(hubReserveTokens, initHubReserveTokens - 10)
     })
+
+    it('hub deposit wei/token for itself and user', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 5,
+        depositTokenHub: 7,
+        depositWeiUser: 8,
+        depositTokenUser: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 17)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      assert.equal(hubReserveTokens, initHubReserveTokens - 17)
+
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 13)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, initHubReserveWei - 13)
+    })
+
   })
 
   describe.skip("userAuthorizedUpdate - withdrawal", () => {
