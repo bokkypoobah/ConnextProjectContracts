@@ -4,10 +4,10 @@ How to use this doc:
 
 cmd+f the following,
 
-REDALERT => vulnerabilities in contract that need to be fixed asap.
-TODO => things to, uhh... do.
-TESTME => items which still need to be unit tested. (Used to keep track of incomplete tests if we update spec and also to keep track of newly testable items from notes.)
-PUNT => items which will be completed on next release.
+- REDALERT => vulnerabilities in contract that need to be fixed asap.
+- TODO => things to, uhh... do.
+- TESTME => items which still need to be unit tested. (Used to keep track of incomplete tests if we update spec and also to keep track of newly testable items from notes.)
+- PUNT => items which will be completed on next release.
 
 ## Happy Case Tests
 
