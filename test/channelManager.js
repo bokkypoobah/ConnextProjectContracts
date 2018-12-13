@@ -79,23 +79,24 @@ function getEventParams(tx, event) {
 
 // takes a Connext channel state and converts it to the contract format
 function normalize(state) {
+  state = convertChannelState("bn", state)
   return ({
     ...state,
     user: state.user,
     recipient: state.recipient,
-    weiBalances: [+state.balanceWeiHub, +state.balanceWeiUser],
-    tokenBalances: [+state.balanceTokenHub, +state.balanceTokenUser],
+    weiBalances: [state.balanceWeiHub, state.balanceWeiUser],
+    tokenBalances: [state.balanceTokenHub, state.balanceTokenUser],
     pendingWeiUpdates: [
-      +state.pendingDepositWeiHub,
-      +state.pendingWithdrawalWeiHub,
-      +state.pendingDepositWeiUser,
-      +state.pendingWithdrawalWeiUser,
+      state.pendingDepositWeiHub,
+      state.pendingWithdrawalWeiHub,
+      state.pendingDepositWeiUser,
+      state.pendingWithdrawalWeiUser,
     ],
     pendingTokenUpdates: [
-      +state.pendingDepositTokenHub,
-      +state.pendingWithdrawalTokenHub,
-      +state.pendingDepositTokenUser,
-      +state.pendingWithdrawalTokenUser,
+      state.pendingDepositTokenHub,
+      state.pendingWithdrawalTokenHub,
+      state.pendingDepositTokenUser,
+      state.pendingWithdrawalTokenUser,
     ],
     txCount: [state.txCountGlobal, state.txCountChain],
     threadRoot: state.threadRoot,
@@ -111,7 +112,6 @@ async function getSig(state, account) {
 }
 
 async function userAuthorizedUpdate(state, account, wei=0) {
-  // TODO see if I can just use BN here instead of + conversion
   state = normalize(state)
   return await cm.userAuthorizedUpdate(
     state.recipient,
