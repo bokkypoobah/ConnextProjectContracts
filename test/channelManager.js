@@ -10,7 +10,7 @@ const HST = artifacts.require("./HumanStandardToken.sol")
 const { Utils } = require("../client/dist/Utils.js");
 const { StateGenerator } = require("../client/dist/StateGenerator.js")
 const { Validator } = require("../client/dist/validator.js")
-const { convertChannelState, convertDeposit, convertExchange, } = require("../client/dist/types")
+const { convertChannelState, convertDeposit, convertExchange, convertWithdrawal } = require("../client/dist/types")
 const { mkAddress, getChannelState, getThreadState, getDepositArgs, getWithdrawalArgs, getExchangeArgs, getPaymentArgs, assertThreadStateEqual, assertChannelStateEqual } = require("../client/dist/testing")
 const clientUtils = new Utils()
 const sg = new StateGenerator()
@@ -169,8 +169,17 @@ contract("ChannelManager", accounts => {
     const updateBN = convertChannelState("bn", update)
     const confirmedBN = convertChannelState("bn", confirmed)
 
+    // TODO test chai-bignumber with should
+
+    /*
+    console.log(channelBalances)
+    console.log(confirmed)
+    */
+
     // Wei balances are equal
     assert(channelBalances.weiHub.eq(confirmedBN.balanceWeiHub))
+    console.log(channelBalances)
+    console.log(confirmedBN)
     assert(channelBalances.weiUser.eq(confirmedBN.balanceWeiUser))
     assert(
       channelBalances.weiTotal.eq(
@@ -491,6 +500,111 @@ contract("ChannelManager", accounts => {
       assert.equal(hubReserveWei, initHubReserveWei - 13)
     })
 
+    it('user withdrawal wei direct from hub deposit', async () => {
+      const withdrawal = getWithdrawalArgs("empty", {
+        ...state,
+        additionalWeiHubToUser: 5
+      })
+      const update = sg.proposePendingWithdrawal(
+        convertChannelState("bn", state),
+        convertWithdrawal("bn", withdrawal)
+      )
+
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 0)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      assert.equal(hubReserveTokens, initHubReserveTokens)
+
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 0)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, initHubReserveWei)
+    })
+
+    it('user deposits wei then withdraws wei', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 10
+      })
+      const update1 = sg.proposePendingDeposit(state, deposit)
+      update1.sigUser = await getSig(update1, viewer)
+      const tx1 = await hubAuthorizedUpdate(update1, hub, 0)
+      await verifyHubAuthorizedUpdate(viewer, update1, tx1, true)
+
+      const withdrawal = getWithdrawalArgs("empty", {
+        ...state,
+        withdrawWeiUser: 9
+      })
+      const update2 = sg.proposePendingWithdrawal(
+        convertChannelState("bn", update1),
+        convertWithdrawal("bn", withdrawal)
+      )
+
+      update2.sigUser = await getSig(update2, viewer)
+      const tx = await hubAuthorizedUpdate(update2, hub, 0)
+      await verifyHubAuthorizedUpdate(viewer, update2, tx, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 0)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      assert.equal(hubReserveTokens, initHubReserveTokens)
+
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 1)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, initHubReserveWei)
+    })
+
+    it.skip('user deposits tokens with exchange, withdraws wei', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositTokenUser: 10
+      })
+      const update1 = sg.proposePendingDeposit(state, deposit)
+      update1.sigUser = await getSig(update1, viewer)
+      const tx1 = await hubAuthorizedUpdate(update1, hub, 0)
+
+      await verifyHubAuthorizedUpdate(viewer, update1, tx1, true)
+
+      const confirmed = await validator.generateConfirmPending(update1, {
+        transactionHash: tx1.tx
+      })
+
+      const withdrawal = getWithdrawalArgs("empty", {
+        ...confirmed,
+        withdrawalWeiUser: 10,
+        depositTokenUser: 5,
+      })
+
+      const update2 = sg.proposePendingWithdrawal(
+        convertChannelState("bn", confirmed),
+        convertWithdrawal("bn", withdrawal)
+      )
+
+      update2.sigUser = await getSig(update2, viewer)
+      const tx2 = await hubAuthorizedUpdate(update2, hub, 0)
+      await verifyHubAuthorizedUpdate(viewer, update2, tx2, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 5)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      assert.equal(hubReserveTokens, initHubReserveTokens - 5)
+
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 0)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, initHubReserveWei)
+    })
   })
 
   describe.skip("userAuthorizedUpdate - withdrawal", () => {
