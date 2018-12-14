@@ -188,9 +188,29 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ## Unilateral Channel Tests
 
+### startExit
+
+1. TESTME Fails if user is hub 
+    - with "user can not be hub"
+2. TESTME Fails if user is the channel manager
+    - with "user can not be channel manager"
+3. TESTME Fails if channel is not open
+    - with "channel must be open"
+4. TESTME Fails if the function is called by someone other than the hub or the passsed in user
+    - with "exit initiator must be user or hub"
+5. TESTME verify that `exitInitiator`, `channelClosingTime` and `status` are set correctly in success case
+
+### startExitWithUpdate
+
+1. 
+
 ## Unilateral Thread Tests
 
 PUNT
+
+### NukeThreads
+
+PUNT should we require that msg.sender can only be hub or user?
 
 
 ## ---- Arjun Temporary Notes ----
@@ -212,12 +232,13 @@ Test inputs
     - Can you start exit for a random user?
         - Would fail require if you aren't the submitted user (or if you aren't the hub)
         - What happens to the hub if I create a random address and dispute a channel that was never acted on? TODO: asked wolever, we should put this in a ticket and verify it doesnt break the hub.
-    - TODO make sure that user != hub or channel manager address in _all_ functions.
-        - This one is okay, so is any function which calls `_verifySig`
+    - Make sure that user != hub or channel manager address in _all_ functions.
+        - startExit is okay, so is any function which calls `_verifySig`
+        - edit: thread methods don't check this, but instead check that the channel is in ThreadDispute, which can only be entered by calling a fn that checks this.
 
 Test states
 - Only internal state that can be manipulated here is channel, which depends on user input
-- We should verify that `exitInitiator`, `channelClosingTime` and `status` are set correctly TESTME
+- We should verify that `exitInitiator`, `channelClosingTime` and `status` are set correctly
 
 #### startExitWithUpdate
 
@@ -265,6 +286,8 @@ Test states
 - TESTME validate that `txCount`, `threadRoot`, `threadCount`, `exitInitiator`, `channelClosingTime` and `status` are set appropriately in success case.
 
 #### emptyChannelWithChallenge
+
+
 
 #### _verifyAuthorizedUpdate
 
