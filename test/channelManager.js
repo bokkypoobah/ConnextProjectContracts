@@ -410,8 +410,6 @@ contract("ChannelManager", accounts => {
       update.sigUser = await getSig(update, viewer)
       const tx = await hubAuthorizedUpdate(update, hub, 0)
 
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
-
       const totalChannelWei = await cm.totalChannelWei.call()
       assert.equal(+totalChannelWei, 10)
 
@@ -435,6 +433,29 @@ contract("ChannelManager", accounts => {
 
       const hubReserveTokens = await cm.getHubReserveTokens()
       assert.equal(hubReserveTokens, initHubReserveTokens - 10)
+    })
+
+    it('hubAuthorizedUpdate - fails when sent wei (no payable)', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+
+      await hubAuthorizedUpdate(update, hub, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when timeout expired', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10,
+        timeout: (new Date().getTime()) / 1000
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('the timeout must be zero or not have passed')
     })
 
     it('hub deposit wei for user', async () => {
