@@ -287,6 +287,34 @@ Test states
 
 #### emptyChannelWithChallenge
 
+Validation sanity check:
+- Validate that function cannot be called on a channel that is in the wrong status or whose dispute time has already expired
+- Validate the sender is the correct person and not the exit initiator
+- Validate inputs with sig
+- Validate that submitted state is not being replayed
+- Validate that the total amount of funds within the channel is not being changed
+
+Test requires:
+- Fails if channel is not in dispute status
+    - with "channel must be in dispute"
+- Fails if the closing time has passed
+    - with "channel closing time must not have passed"
+- Fails if `msg.sender` initiated the exit
+    - with "challenger can not be exit initiator"
+- Fails if `msg.sender` is not either the hub or the submitted user
+    - with "challenger must be either user or hub"
+- Fails if timeout is nonzero
+    - with "can't start exit with time-sensistive states"
+- Fails if `txCount[0] <= channel.txCount[0]`
+    - with "global txCount must be higher than the current global txCount"
+- Fails if `txCount[1] < channel.txCount[1]`
+    - with "onchain txCount must be higher or equal to the current onchain txCount"
+- Fails if wei balances are greater than `channel.weiBalances[2]`
+    - with "wei must be conserved"
+- Fails if token balances are greater than `channel.tokenBalances[2]`
+    - with "tokens must be conserved"
+- Fails if token transfer fails 
+    - with "user token withdrawal transfer failed"
 
 
 #### _verifyAuthorizedUpdate
