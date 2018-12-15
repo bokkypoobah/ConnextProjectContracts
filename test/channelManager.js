@@ -483,8 +483,6 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0)
 
       //Then submit another deposit at the same txCountGlobal
-      //note: this was also tested with the initial deposit at txCountGlobal = 1
-      //      to make sure that the < condition is satisfied.
       newDeposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10,
@@ -494,6 +492,11 @@ contract("ChannelManager", accounts => {
       newUpdate.sigUser = await getSig(newUpdate, viewer)
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
+      
+      /*  note: this was also tested with the initial deposit 
+          at txCountGlobal = 1 to make sure that the < condition 
+          is satisfied. 
+      */
     })
 
     it('hub deposit wei for user', async () => {
