@@ -624,7 +624,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
 
-    it.only('hubAuthorizedUpdate - fails when user in sig is incorrect', async () => {
+    it('hubAuthorizedUpdate - fails when user in sig is incorrect', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -633,6 +633,32 @@ contract("ChannelManager", accounts => {
       update.user = emptyAddress
       update.sigUser = await getSig(update, viewer)
       update.user = viewer.address
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when weiBalances in sig are incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.balanceWeiHub = 5
+      update.sigUser = await getSig(update, viewer)
+      update.balanceWeiHub = 0
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when tokenBalances in sig are incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.balanceTokenHub = 5
+      update.sigUser = await getSig(update, viewer)
+      update.balanceTokenHub = 0
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
