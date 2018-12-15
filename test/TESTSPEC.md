@@ -16,7 +16,9 @@ cmd+f the following,
 Unit: 
 
 Expect
-1. TESTME Fails if `msg.sender` is not hub
+1. Fails when sent wei (not payable)
+    - with "VM Exception while processing transaction: revert"
+1. Fails if `msg.sender` is not hub
     - with TODO
 2. TESTME Fails if channel status is not `Open`.
     - with "channel must be open"

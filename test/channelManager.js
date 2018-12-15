@@ -446,7 +446,18 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
     })
 
-    it.only('hubAuthorizedUpdate - fails when timeout expired', async () => {
+    it.only('hubAuthorizedUpdate - fails when msg.sender is not hub', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+
+      await hubAuthorizedUpdate(update, viewer, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
+    })
+
+    it('hubAuthorizedUpdate - fails when timeout expired', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10,
