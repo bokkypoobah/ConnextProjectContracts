@@ -34,7 +34,7 @@ Expect
     - with "tokens must be conserved"
 8. Fails if the total pending wei deposits for both sides of the channel are greater than the hub's reserve wei
     - with "insufficient reserve wei for deposits"
-9. TESTME Fails if the total pending token deposits for both sides of the channel are greater than the hub's reserve tokens
+9. Fails if the total pending token deposits for both sides of the channel are greater than the hub's reserve tokens
     - with "insufficient reserve tokens for deposits"
 12. TESTME Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
     - with "insufficient wei"
