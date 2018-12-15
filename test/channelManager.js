@@ -563,7 +563,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve tokens for deposits')
     })
 
-    it.only('hubAuthorizedUpdate - fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
+    it('hubAuthorizedUpdate - fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10,
@@ -573,6 +573,18 @@ contract("ChannelManager", accounts => {
       update.sigUser = await getSig(update, viewer)
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient wei')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when current total channel tokens + both deposits is less than final balances + withdrawals', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositTokenHub: 10,
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.pendingWithdrawalTokenUser = 20 //also tested here with hub withdrawal
+      update.sigUser = await getSig(update, viewer)
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient token')
     })
 
     it('hub deposit wei for user', async () => {
