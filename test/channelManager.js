@@ -446,7 +446,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
     })
 
-    it.only('hubAuthorizedUpdate - fails when msg.sender is not hub', async () => {
+    it('hubAuthorizedUpdate - fails when msg.sender is not hub', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -469,6 +469,31 @@ contract("ChannelManager", accounts => {
       update.sigUser = await getSig(update, viewer)
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('the timeout must be zero or not have passed')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
+      //First submit a deposit at default txCountGlobal
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10,
+        txCountGlobal: 0
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      await hubAuthorizedUpdate(update, hub, 0)
+
+      //Then submit another deposit at the same txCountGlobal
+      //note: this was also tested with the initial deposit at txCountGlobal = 1
+      //      to make sure that the < condition is satisfied.
+      newDeposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10,
+        txCountGlobal: 0
+      })
+      newUpdate = sg.proposePendingDeposit(state, newDeposit)
+      newUpdate.sigUser = await getSig(newUpdate, viewer)
+
+      await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
     })
 
     it('hub deposit wei for user', async () => {
