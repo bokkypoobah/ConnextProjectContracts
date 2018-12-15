@@ -42,7 +42,7 @@ Expect
     - with "insufficient token"
 14. Fails if user is hub
     - with "user can not be hub"
-15. TESTME Fails if user is channel manager
+15. Fails if user is channel manager
     - with "user can not be channel manager"
 16. TESTME Fails if address in signature is not the address of channel manager
     - fails with either "hub signature invalid" or "user signature invalid"
