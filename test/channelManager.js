@@ -517,7 +517,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
     })
 
-    it.only('hubAuthorizedUpdate - fails when wei is not conserved', async () => {
+    it('hubAuthorizedUpdate - fails when wei is not conserved', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -527,6 +527,18 @@ contract("ChannelManager", accounts => {
       update.sigUser = await getSig(update, viewer)
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('wei must be conserved')
+    })
+
+    it('hubAuthorizedUpdate - fails when tokens are not conserved', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.balanceTokenHub = 20
+      update.sigUser = await getSig(update, viewer)
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('tokens must be conserved')
     })
 
     it('hub deposit wei for user', async () => {

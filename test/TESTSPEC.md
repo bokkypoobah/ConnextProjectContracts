@@ -30,7 +30,7 @@ Expect
     - with "onchain txCount must be higher or equal to the current onchain txCount"
 6. Fails if wei balances are greater than `channel.weiBalances[2]`
     - with "wei must be conserved"
-7. TESTME Fails if token balances are greater than `channel.tokenBalances[2]`
+7. Fails if token balances are greater than `channel.tokenBalances[2]`
     - with "tokens must be conserved"
 8. TESTME Fails if sender is hub and the total pending wei deposits for both sides of the channel are greater than the hub's reserve wei
     - with "insufficient reserve wei for deposits"
