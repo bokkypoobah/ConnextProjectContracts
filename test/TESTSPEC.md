@@ -64,9 +64,9 @@ Expect
 24. Fails if threadCount is incorrect in state
     - fails with "user signature invalid"
     - note: this should be zero for this release! TODO verify that this is validated on client/hub
-25. TESTME Fails if timeout is incorrect in state
+25. Fails if timeout is incorrect in state
     - fails with "user signature invalid"
-26. TESTME Fails if user is not the signer of sigUser
+26. Fails if user is not the signer of sigUser
     - with "user signature invalid"
 27. TESTME totalChannelWei is increased by depposits and decreased by withdrawals as expected in success case
 28. TESTME same as above for tokens

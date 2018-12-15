@@ -728,7 +728,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
 
-    it.only('hubAuthorizedUpdate - fails when timeout in sig is incorrect', async () => {
+    it('hubAuthorizedUpdate - fails when timeout in sig is incorrect', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -737,6 +737,17 @@ contract("ChannelManager", accounts => {
       update.timeout = 1
       update.sigUser = await getSig(update, viewer)
       update.timeout = 0
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it('hubAuthorizedUpdate - fails when user is not signer', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, hub)
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
