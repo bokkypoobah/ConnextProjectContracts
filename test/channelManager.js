@@ -454,8 +454,10 @@ contract("ChannelManager", accounts => {
       const update = sg.proposePendingDeposit(state, deposit)
       update.sigUser = await getSig(update, viewer)
 
-      await hubAuthorizedUpdate(update, viewer, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
+      await hubAuthorizedUpdate(update, viewer, 0).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
     })
+
+    //TODO it('hubAuthorizedUpdate - fails when channel status is not "Open"')
 
     it('hubAuthorizedUpdate - fails when timeout expired', async () => {
       const deposit = getDepositArgs("empty", {
