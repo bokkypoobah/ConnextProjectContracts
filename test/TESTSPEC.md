@@ -32,13 +32,9 @@ Expect
     - with "wei must be conserved"
 7. Fails if token balances are greater than `channel.tokenBalances[2]`
     - with "tokens must be conserved"
-8. TESTME Fails if sender is hub and the total pending wei deposits for both sides of the channel are greater than the hub's reserve wei
+8. Fails if the total pending wei deposits for both sides of the channel are greater than the hub's reserve wei
     - with "insufficient reserve wei for deposits"
-9. TESTME Fails if sender is hub and the total pending token deposits for both sides of the channel are greater than the hub's reserve tokens
-    - with "insufficient reserve tokens for deposits"
-10. TESTME Fails if sender is not hub and hub wei deposit is greater than hub reserve wei
-    - with "insufficient reserve wei for deposits"
-11. TESTME Fails if sender is not hub and hub token deposit is greater than hub reserve token
+9. TESTME Fails if the total pending token deposits for both sides of the channel are greater than the hub's reserve tokens
     - with "insufficient reserve tokens for deposits"
 12. TESTME Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
     - with "insufficient wei"
@@ -117,10 +113,6 @@ Expect
     - with "wei must be conserved"
 7. TESTME Fails if token balances are greater than `channel.tokenBalances[2]`
     - with "tokens must be conserved"
-8. TESTME Fails if sender is hub and the total pending wei deposits for both sides of the channel are greater than the hub's reserve wei
-    - with "insufficient reserve wei for deposits"
-9. TESTME Fails if sender is hub and the total pending token deposits for both sides of the channel are greater than the hub's reserve tokens
-    - with "insufficient reserve tokens for deposits"
 10. TESTME Fails if sender is not hub and hub wei deposit is greater than hub reserve wei
     - with "insufficient reserve wei for deposits"
 11. TESTME Fails if sender is not hub and hub token deposit is greater than hub reserve token
