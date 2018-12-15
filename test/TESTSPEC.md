@@ -46,7 +46,7 @@ Expect
     - with "user can not be channel manager"
 16. Fails if address in signature is not the address of channel manager
     - fails with "user signature invalid"
-17. TESTME Fails if user or recipient is not correct in state
+17. Fails if user or recipient is not correct in state
     - fails with "user signature invalid"
 18. TESTME Fails if weiBalances are incorrect in state
     - fails with "user signature invalid"

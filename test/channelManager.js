@@ -611,7 +611,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be channel manager')
     })
 
-    it.only('hubAuthorizedUpdate - fails when address in sig is not address of channel manager', async () => {
+    it('hubAuthorizedUpdate - fails when address in sig is not address of channel manager', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -620,6 +620,19 @@ contract("ChannelManager", accounts => {
       update.contractAddress = emptyAddress
       update.sigUser = await getSig(update, viewer)
       update.contractAddress = cm.address
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when user in sig is incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.user = emptyAddress
+      update.sigUser = await getSig(update, viewer)
+      update.user = viewer.address
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
