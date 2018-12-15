@@ -48,13 +48,13 @@ Expect
     - fails with "user signature invalid"
 17. Fails if user or recipient is not correct in state
     - fails with "user signature invalid"
-18. TESTME Fails if weiBalances are incorrect in state
+18. Fails if weiBalances are incorrect in state
     - fails with "user signature invalid"
-19. TESTME Fails if tokenBalances are incorrect in state
+19. Fails if tokenBalances are incorrect in state
     - fails with "user signature invalid"
-20. TESTME Fails if pendingWeiUpdates are incorrect in state
+20. Fails if pendingWeiUpdates are incorrect in state
     - fails with "user signature invalid"
-21. TESTME Fails if pendingTokenUpdates is incorrect in state
+21. Fails if pendingTokenUpdates is incorrect in state
     - fails with "user signature invalid"
 22. TESTME Fails if txCount is incorrect in state
     - fails with "user signature invalid"

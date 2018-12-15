@@ -637,7 +637,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
 
-    it.only('hubAuthorizedUpdate - fails when weiBalances in sig are incorrect', async () => {
+    it('hubAuthorizedUpdate - fails when weiBalances in sig are incorrect', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -650,7 +650,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
 
-    it.only('hubAuthorizedUpdate - fails when tokenBalances in sig are incorrect', async () => {
+    it('hubAuthorizedUpdate - fails when tokenBalances in sig are incorrect', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -659,6 +659,32 @@ contract("ChannelManager", accounts => {
       update.balanceTokenHub = 5
       update.sigUser = await getSig(update, viewer)
       update.balanceTokenHub = 0
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when pendingWeiBalances in sig are incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.pendingDepositWeiHub = 0
+      update.sigUser = await getSig(update, viewer)
+      update.pendingDepositWeiHub = 10
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when pendingTokenBalances in sig are incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.pendingDepositTokenHub = 10
+      update.sigUser = await getSig(update, viewer)
+      update.pendingDepositTokenHub = 0
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
