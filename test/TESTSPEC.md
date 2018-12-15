@@ -36,11 +36,11 @@ Expect
     - with "insufficient reserve wei for deposits"
 9. Fails if the total pending token deposits for both sides of the channel are greater than the hub's reserve tokens
     - with "insufficient reserve tokens for deposits"
-12. TESTME Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
+12. Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
     - with "insufficient wei"
-13. TESTME Fails if the current total channel tokens + both deposits is less than the final balances + both withdrawals
+13. Fails if the current total channel tokens + both deposits is less than the final balances + both withdrawals
     - with "insufficient token"
-14. TESTME Fails if user is hub
+14. Fails if user is hub
     - with "user can not be hub"
 15. TESTME Fails if user is channel manager
     - with "user can not be channel manager"
