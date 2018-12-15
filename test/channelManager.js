@@ -663,7 +663,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
 
-    it.only('hubAuthorizedUpdate - fails when pendingWeiBalances in sig are incorrect', async () => {
+    it('hubAuthorizedUpdate - fails when pendingWeiBalances in sig are incorrect', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -676,7 +676,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })
 
-    it.only('hubAuthorizedUpdate - fails when pendingTokenBalances in sig are incorrect', async () => {
+    it('hubAuthorizedUpdate - fails when pendingTokenBalances in sig are incorrect', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -685,6 +685,45 @@ contract("ChannelManager", accounts => {
       update.pendingDepositTokenHub = 10
       update.sigUser = await getSig(update, viewer)
       update.pendingDepositTokenHub = 0
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when txCount in sig is incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.txCountGlobal = 2
+      update.sigUser = await getSig(update, viewer)
+      update.txCountGlobal = 1
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when threadRoot in sig is incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.threadRoot = emptyAddress + 1
+      update.sigUser = await getSig(update, viewer)
+      update.threadRoot = emptyAddress
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when threadRoot in sig is incorrect', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.threadCount = 1
+      update.sigUser = await getSig(update, viewer)
+      update.threadCount = 0
 
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
     })

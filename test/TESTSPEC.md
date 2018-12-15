@@ -56,12 +56,12 @@ Expect
     - fails with "user signature invalid"
 21. Fails if pendingTokenUpdates is incorrect in state
     - fails with "user signature invalid"
-22. TESTME Fails if txCount is incorrect in state
+22. Fails if txCount is incorrect in state
     - fails with "user signature invalid"
-23. TESTME Fails if threadRoot is incorrect in state
+23. Fails if threadRoot is incorrect in state
     - fails with "user signature invalid"
     - note: this should be empty for this release! TODO verify that this is validated on client/hub 
-24. TESTME Fails if threadCount is incorrect in state
+24. Fails if threadCount is incorrect in state
     - fails with "user signature invalid"
     - note: this should be zero for this release! TODO verify that this is validated on client/hub
 25. TESTME Fails if timeout is incorrect in state
