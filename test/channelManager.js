@@ -475,27 +475,23 @@ contract("ChannelManager", accounts => {
       //First submit a deposit at default txCountGlobal
       const deposit = getDepositArgs("empty", {
         ...state,
-        depositWeiHub: 10,
-        txCountGlobal: 0
+        depositWeiHub: 10
       })
       const update = sg.proposePendingDeposit(state, deposit)
+      update.txCountGlobal = 1;
       update.sigUser = await getSig(update, viewer)
       await hubAuthorizedUpdate(update, hub, 0)
 
-      //Then submit another deposit at the same txCountGlobal
-      newDeposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10,
-        txCountGlobal: 0
-      })
-      newUpdate = sg.proposePendingDeposit(state, newDeposit)
+      // Then submit another deposit at the same txCountGlobal
+      const newUpdate = sg.proposePendingDeposit(state, deposit)
+      newUpdate.txCountGlobal = 1;
       newUpdate.sigUser = await getSig(newUpdate, viewer)
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
       
-      /*  note: this was also tested with the initial deposit 
-          at txCountGlobal = 1 to make sure that the < condition 
-          is satisfied. 
+      /*  note: this was also tested with newUpdate.txCountGlobal 
+          = 0 to make sure that the < condition 
+          is satisfied. Can split into separate test if needed.
       */
     })
 
