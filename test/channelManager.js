@@ -471,7 +471,7 @@ contract("ChannelManager", accounts => {
       await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('the timeout must be zero or not have passed')
     })
 
-    it.only('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
+    it('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
       //First submit a deposit at default txCountGlobal
       const deposit = getDepositArgs("empty", {
         ...state,
@@ -489,10 +489,32 @@ contract("ChannelManager", accounts => {
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
       
-      /*  note: this was also tested with newUpdate.txCountGlobal 
-          = 0 to make sure that the < condition 
-          is satisfied. Can split into separate test if needed.
+      /*  
+        note: this was also tested with newUpdate.txCountGlobal 
+        = 0 to make sure that the < condition is satisfied. 
+        Can split into separate test if needed.
       */
+    })
+
+    it.only('hubAuthorizedUpdate - fails when txCount[1] < channel.txCount[1]', async () => {
+      //First submit a deposit at default txCountChain
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      //txCountGlobal = 1
+      update.txCountChain = 1;
+      update.sigUser = await getSig(update, viewer)
+      await hubAuthorizedUpdate(update, hub, 0)
+
+      // Then submit another deposit at the same txCountChain
+      const newUpdate = sg.proposePendingDeposit(state, deposit)
+      newUpdate.txCountGlobal = 2; // have to increment global count here to pass above test
+      newUpdate.txCountChain = 0;
+      newUpdate.sigUser = await getSig(newUpdate, viewer)
+
+      await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
     })
 
     it('hub deposit wei for user', async () => {
