@@ -478,13 +478,13 @@ contract("ChannelManager", accounts => {
         depositWeiHub: 10
       })
       const update = sg.proposePendingDeposit(state, deposit)
-      update.txCountGlobal = 1;
+      update.txCountGlobal = 1
       update.sigUser = await getSig(update, viewer)
       await hubAuthorizedUpdate(update, hub, 0)
 
       // Then submit another deposit at the same txCountGlobal
       const newUpdate = sg.proposePendingDeposit(state, deposit)
-      newUpdate.txCountGlobal = 1;
+      newUpdate.txCountGlobal = 1
       newUpdate.sigUser = await getSig(newUpdate, viewer)
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
@@ -496,7 +496,7 @@ contract("ChannelManager", accounts => {
       */
     })
 
-    it.only('hubAuthorizedUpdate - fails when txCount[1] < channel.txCount[1]', async () => {
+    it('hubAuthorizedUpdate - fails when txCount[1] < channel.txCount[1]', async () => {
       //First submit a deposit at default txCountChain
       const deposit = getDepositArgs("empty", {
         ...state,
@@ -504,17 +504,29 @@ contract("ChannelManager", accounts => {
       })
       const update = sg.proposePendingDeposit(state, deposit)
       //txCountGlobal = 1
-      update.txCountChain = 1;
+      update.txCountChain = 1
       update.sigUser = await getSig(update, viewer)
       await hubAuthorizedUpdate(update, hub, 0)
 
       // Then submit another deposit at the same txCountChain
       const newUpdate = sg.proposePendingDeposit(state, deposit)
-      newUpdate.txCountGlobal = 2; // have to increment global count here to pass above test
-      newUpdate.txCountChain = 0;
+      newUpdate.txCountGlobal = 2 // have to increment global count here to pass above test
+      newUpdate.txCountChain = 0
       newUpdate.sigUser = await getSig(newUpdate, viewer)
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
+    })
+
+    it.only('hubAuthorizedUpdate - fails when wei is not conserved', async () => {
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.balanceWeiHub = 20
+      update.sigUser = await getSig(update, viewer)
+
+      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('wei must be conserved')
     })
 
     it('hub deposit wei for user', async () => {
