@@ -68,7 +68,7 @@ Expect
     - fails with "user signature invalid"
 26. Fails if user is not the signer of sigUser
     - with "user signature invalid"
-27. TESTME totalChannelWei is increased by depposits and decreased by withdrawals as expected in success case
+27. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
 28. TESTME same as above for tokens
 29. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
 30. TESTME same for tokens
