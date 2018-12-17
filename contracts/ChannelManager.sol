@@ -31,13 +31,15 @@ contract ChannelManager {
     event DidUpdateChannel (
         address indexed user,
         uint256 senderIdx, // 0: hub, 1: user
+        address recipient,
         uint256[2] weiBalances, // [hub, user]
         uint256[2] tokenBalances, // [hub, user]
         uint256[4] pendingWeiUpdates, // [hubDeposit, hubWithdrawal, userDeposit, userWithdrawal]
         uint256[4] pendingTokenUpdates, // [hubDeposit, hubWithdrawal, userDeposit, userWithdrawal]
         uint256[2] txCount, // [global, onchain]
         bytes32 threadRoot,
-        uint256 threadCount
+        uint256 threadCount,
+        uint256 timeout
     );
 
     // Note: unlike the DidUpdateChannel event, the ``DidStartExitChannel``
@@ -239,13 +241,15 @@ contract ChannelManager {
         emit DidUpdateChannel(
             user,
             0, // senderIdx
+            recipient,
             weiBalances,
             tokenBalances,
             pendingWeiUpdates,
             pendingTokenUpdates,
             txCount,
             threadRoot,
-            threadCount
+            threadCount,
+            timeout
         );
     }
 
@@ -308,13 +312,15 @@ contract ChannelManager {
         emit DidUpdateChannel(
             msg.sender,
             1, // senderIdx
+            recipient,
             weiBalances,
             tokenBalances,
             pendingWeiUpdates,
             pendingTokenUpdates,
             channel.txCount,
             channel.threadRoot,
-            channel.threadCount
+            channel.threadCount,
+            timeout
         );
     }
 
