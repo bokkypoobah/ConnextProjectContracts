@@ -32,37 +32,37 @@ const secondsFromNow = (seconds) => seconds + Math.floor(new Date().getTime() / 
 const minutesFromNow = (minutes) => secondsFromNow(minutes * 60)
 
 async function snapshot() {
-    return new Promise((accept, reject) => {
-        ethRPC.sendAsync({method: `evm_snapshot`}, (err, result)=> {
-        if (err) {
-            reject(err)
-        } else {
-            accept(result)
-        }
-        })
+  return new Promise((accept, reject) => {
+    ethRPC.sendAsync({ method: `evm_snapshot` }, (err, result) => {
+      if (err) {
+        reject(err)
+      } else {
+        accept(result)
+      }
     })
-  }
+  })
+}
 
 async function restore(snapshotId) {
-    return new Promise((accept, reject) => {
-      ethRPC.sendAsync({method: `evm_revert`, params: [snapshotId]}, (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          accept(result)
-        }
-      })
+  return new Promise((accept, reject) => {
+    ethRPC.sendAsync({ method: `evm_revert`, params: [snapshotId] }, (err, result) => {
+      if (err) {
+        reject(err)
+      } else {
+        accept(result)
+      }
     })
-  }
+  })
+}
 
 async function moveForwardSecs(secs) {
   await ethRPC.sendAsync({
-    jsonrpc:'2.0', method: `evm_increaseTime`,
+    jsonrpc: '2.0', method: `evm_increaseTime`,
     params: [secs],
     id: 0
-  }, (err)=> {`error increasing time`})
+  }, (err) => { `error increasing time` })
   const start = Date.now()
-  await ethRPC.sendAsync({method: `evm_mine`}, (err)=> {})
+  await ethRPC.sendAsync({ method: `evm_mine` }, (err) => { })
   return true
 }
 
@@ -75,6 +75,10 @@ function getEventParams(tx, event) {
     }
   }
   return false
+}
+
+function fastForwardDisputeTimer(channel) {
+
 }
 
 // takes a Connext channel state and converts it to the contract format
@@ -111,7 +115,8 @@ async function getSig(state, account) {
   return signature
 }
 
-async function userAuthorizedUpdate(state, account, wei=0) {
+// channel update fn wrappers
+async function userAuthorizedUpdate(state, account, wei = 0) {
   state = normalize(state)
   return await cm.userAuthorizedUpdate(
     state.recipient,
@@ -124,11 +129,11 @@ async function userAuthorizedUpdate(state, account, wei=0) {
     state.threadCount,
     state.timeout,
     state.sigHub,
-    {from: account.address, value: wei}
+    { from: account.address, value: wei }
   )
 }
 
-async function hubAuthorizedUpdate(state, account, wei=0) {
+async function hubAuthorizedUpdate(state, account, wei = 0) {
   state = normalize(state)
   return await cm.hubAuthorizedUpdate(
     state.user,
@@ -142,8 +147,52 @@ async function hubAuthorizedUpdate(state, account, wei=0) {
     state.threadCount,
     state.timeout,
     state.sigUser,
-    {from: account.address, value: wei}
+    { from: account.address, value: wei }
   )
+}
+
+// channel dispute fn wrappers
+async function startExit(state, account, wei = 0) {
+  return await cm.startExit(state.user, { from: account.address, value: wei })
+}
+
+async function startExitWithUpdate(state, account, wei = 0) {
+  state = normalize(state)
+  return await cm.startExitWithUpdate(
+    [state.user, state.recipient],
+    state.weiAmount,
+    state.tokenBalances,
+    state.pendingWeiUpdates,
+    state.pendingTokenUpdates,
+    state.txCount,
+    state.threadRoot,
+    state.threadCount,
+    state.timeout,
+    state.sigHub,
+    state.sigUser,
+    { from: account.address, value: wei }
+  )
+}
+
+async function emptyChannelWithChallenge(state, account, wei = 0) {
+  state = normalize(state)
+  return await cm.exitChannelWithChallenge(
+    [state.user, state.recipient],
+    state.weiAmount,
+    state.tokenBalances,
+    state.pendingWeiUpdates,
+    state.pendingTokenUpdates,
+    state.txCount,
+    state.threadRoot,
+    state.threadCount,
+    state.timeout,
+    state.sigHub,
+    state.sigUser,
+  )
+}
+
+async function emptyChannel(state, account, wei = 0) {
+  return await cm.startExit(state.user, { from: account.address, value: wei })
 }
 
 let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
@@ -183,7 +232,7 @@ contract("ChannelManager", accounts => {
     assert(channelBalances.weiUser.eq(confirmedBN.balanceWeiUser))
     assert(
       channelBalances.weiTotal.eq(
-      confirmedBN.balanceWeiHub.add(confirmedBN.balanceWeiUser))
+        confirmedBN.balanceWeiHub.add(confirmedBN.balanceWeiUser))
     )
 
     // Token balances are equal
@@ -191,7 +240,7 @@ contract("ChannelManager", accounts => {
     assert(channelBalances.tokenUser.eq(confirmedBN.balanceTokenUser))
     assert(
       channelBalances.tokenTotal.eq(
-      confirmedBN.balanceTokenHub.add(confirmedBN.balanceTokenUser))
+        confirmedBN.balanceTokenHub.add(confirmedBN.balanceTokenUser))
     )
 
     // Tx counts are equal to the original update (confirmed increments)
@@ -341,8 +390,8 @@ contract("ChannelManager", accounts => {
   describe("userAuthorizedUpdate - deposit", () => {
     beforeEach(async () => {
       const userTokenBalance = 1000
-      await token.transfer(viewer.address, userTokenBalance, {from: hub.address})
-      await token.approve(cm.address, userTokenBalance, {from: viewer.address})
+      await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
+      await token.approve(cm.address, userTokenBalance, { from: viewer.address })
     })
 
 
@@ -395,7 +444,7 @@ contract("ChannelManager", accounts => {
 
   describe.only("hubAuthorizedUpdate", () => {
     beforeEach(async () => {
-      await token.transfer(cm.address, 1000, {from: hub.address})
+      await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 1000 })
       initHubReserveWei = await cm.getHubReserveWei()
       initHubReserveTokens = await cm.getHubReserveTokens()
@@ -488,7 +537,7 @@ contract("ChannelManager", accounts => {
       newUpdate.sigUser = await getSig(newUpdate, viewer)
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
-      
+
       /*  
         note: this was also tested with newUpdate.txCountGlobal 
         = 0 to make sure that the < condition is satisfied. 
@@ -927,8 +976,8 @@ contract("ChannelManager", accounts => {
 
     beforeEach(async () => {
       const userTokenBalance = 1000
-      await token.transfer(viewer.address, userTokenBalance, {from: hub.address})
-      await token.approve(cm.address, userTokenBalance, {from: viewer.address})
+      await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
+      await token.approve(cm.address, userTokenBalance, { from: viewer.address })
 
       const deposit = getDepositArgs("empty", {
         ...state,
