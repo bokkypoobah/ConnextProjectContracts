@@ -29,6 +29,8 @@
   "homepage": "https://github.com/ConnextProject/contracts#readme",
   "dependencies": {
     "@spankchain/connext-client": "0.0.1",
+    "bignumber.js": "^7.2.1",
+    "bn.js": "^4.11.8",
     "chai": "^4.2.0",
     "chai-as-promised": "^7.1.1",
     "chai-subset": "^1.6.0",
@@ -43,5 +45,7 @@
     "node": ">=10",
     "npm": ">=6"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "chai-bignumber": "^3.0.0"
+  }
 }
