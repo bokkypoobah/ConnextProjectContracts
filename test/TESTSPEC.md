@@ -196,16 +196,148 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ### startExitWithUpdate
 
-1. 
+1. TESTME Fails if channel status is not open
+    - with "channel must be open"
+2. TESTME Fails if `msg.sender` is not the hub or the submitted user
+    - with "exit initiator must be user or hub"
+3. TESTME Fails if `timeout` is nonzero
+    - with "can't start exit with time-sensitive states"
+4. TESTME Fails if `msg.sender` is hub
+    - with "user can not be hub"
+5. TESTME Fails if `msg.sender` is channel manager
+    - with "user can not be channel manager"
+6. TESTME Fails if address in signature is not the address of channel manager
+    - fails with either "hub signature invalid" or "user signature invalid"
+7. TESTME Fails if user or recipient is not correct in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+8. TESTME Fails if weiBalances are incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+9. TESTME Fails if tokenBalances are incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+10. TESTME Fails if pendingWeiUpdates are incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+11. TESTME Fails if pendingTokenUpdates is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+12. TESTME Fails if txCount is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+13. TESTME Fails if threadRoot is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+    - note: this should be empty for this release! TODO verify that this is validated on client/hub 
+14. TESTME Fails if threadCount is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+    - note: this should be zero for this release! TODO verify that this is validated on client/hub
+15. TESTME Fails if timeout is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+16. TESTME Fails if hub is not the signer of sigHub
+    - with "hub signature invalid"
+17. TESTME Fails if user is not the signer of sigUser
+    - with "user signature invalid"
+17. TESTME Fails if `txCount[0]` is not higher than the current `txCount[0]`
+    - with "global txCount must be higher than the current global txCount"
+18. TESTME Fails if `txCount[1]` is strictly less than current `txCount[1]`
+    - with "onchain txCount must be higher or equal to the current onchain txCount"
+19. TESTME Fails if offchain wei balances exceed onchain wei
+    - with "wei must be conserved"
+20. TESTME Fails if offchain token balances exceed onchain tokens
+    - with "tokens must be conserved"
+21. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
+22. TESTME same as above for tokens
+23. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
+24. TESTME same for tokens
+25. TESTME verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
+26. TESTME verify that channelBalances[0] stays the same in the case that withdraws >= deposits
+27. TESTME same as above for channelBalances[1] in case where deposits are greater than withdrawals
+28. TESTME same as above for channelBalances[1] in case where withdrawals >= deposits
+TODO Test possible states for revertPendingUpdates
+
+### emptyChannelWithChallenge
+1. TESTME Fails if channel is not in dispute status
+    - with "channel must be in dispute"
+2. TESTME Fails if the closing time has passed
+    - with "channel closing time must not have passed"
+3. TESTME Fails if `msg.sender` initiated the exit
+    - with "challenger can not be exit initiator"
+4. TESTME Fails if `msg.sender` is not either the hub or the submitted user
+    - with "challenger must be either user or hub"
+5. TESTME Fails if timeout is nonzero
+    - with "can't start exit with time-sensistive states"
+6. TESTME Fails if `msg.sender` is hub
+    - with "user can not be hub"
+7. TESTME Fails if `msg.sender` is channel manager
+    - with "user can not be channel manager"
+8. TESTME Fails if address in signature is not the address of channel manager
+    - fails with either "hub signature invalid" or "user signature invalid"
+9. TESTME Fails if user or recipient is not correct in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+10. TESTME Fails if weiBalances are incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+11. TESTME Fails if tokenBalances are incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+12. TESTME Fails if pendingWeiUpdates are incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+13. TESTME Fails if pendingTokenUpdates is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+14. TESTME Fails if txCount is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+15. TESTME Fails if threadRoot is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+16. TESTME Fails if threadCount is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+17. TESTME Fails if timeout is incorrect in state
+    - fails with either "hub signature invalid" or "user signature invalid"
+18. TESTME Fails if hub is not the signer of sigHub
+    - with "hub signature invalid"
+19. TESTME Fails if user is not the signer of sigUser
+    - with "user signature invalid"
+20. TESTME Fails if `txCount[0] <= channel.txCount[0]`
+    - with "global txCount must be higher than the current global txCount"
+21. TESTME Fails if `txCount[1] < channel.txCount[1]`
+    - with "onchain txCount must be higher or equal to the current onchain txCount"
+22. TESTME Fails if wei balances are greater than `channel.weiBalances[2]`
+    - with "wei must be conserved"
+23. TESTME Fails if token balances are greater than `channel.tokenBalances[2]`
+    - with "tokens must be conserved"
+24. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
+25. TESTME same as above for tokens
+26. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
+27. TESTME same for tokens
+28. TESTME verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
+29. TESTME verify that channelBalances[0] stays the same in the case that withdraws >= deposits
+30. TESTME same as above for channelBalances[1] in case where deposits are greater than withdrawals
+31. TESTME same as above for channelBalances[1] in case where withdrawals >= deposits
+TODO Test possible states for revertPendingUpdates
+32. TESTME Fails if token transfer fails 
+    - with "user token withdrawal transfer failed"
+33. TESTME verify correct `totalChannelWei` and `totalChannelToken` decrease in success case. (also other vars)
+
+### emptyChannel
+
+1. TESTME Fails if user is hub
+    - with "user can not be hub"
+2. TESTME Fails if user is channel manager
+    - with "user can ot be channel manager"
+3. TESTME Fails if channel is not in dispute status
+    - with "channel must be in dispute"
+4. TESTME Fails if channel closing time has not passed and `msg.sender` is the exit initiator
+    - with "channel closing time must have passed or msg.sender must be non-exit-initiating party"
+5. TESTME Fails if token transfer fails
+    - with "user token withdrawal transfer failed"
+6. TESTME verify that correct amounts are transferred during success case and that all state is updated correctly
 
 ## Unilateral Thread Tests
 
-PUNT
+MOSTLY PUNT
 
-### NukeThreads
-
-PUNT should we require that msg.sender can only be hub or user?
-
+1. TESTME Fails when you call startExitThread with a threadCount of 0
+2. TESTME Fails when you call startExitThread with a threadRoot of 0x0
+3. TESTME Fails when you call startExitThreadWithUpdate with a threadCount of 0
+4. TESTME Fails when you call startExitThreadWithUpdate with a threadRoot of 0x0
+5. TESTME Fails when you call challengeThread with a threadCount of 0
+6. TESTME Fails when you call challengeThread with a threadRoot of 0x0
+7. TESTME Fails when you call emptyThread with a threadCount of 0
+8. TESTME Fails when you call emptyThread with a threadRoot of 0x0
+9. TESTME Fails when you call nukeThreads with a threadCount of 0
+10. TESTME Fails when you call nukeThreads with a threadRoot of 0x0
 
 ## ---- Arjun Temporary Notes ----
 
@@ -299,6 +431,7 @@ Test requires:
     - with "challenger must be either user or hub"
 - Fails if timeout is nonzero
     - with "can't start exit with time-sensistive states"
+- All verifySig requires
 - Fails if `txCount[0] <= channel.txCount[0]`
     - with "global txCount must be higher than the current global txCount"
 - Fails if `txCount[1] < channel.txCount[1]`
@@ -309,6 +442,8 @@ Test requires:
     - with "tokens must be conserved"
 - Fails if token transfer fails 
     - with "user token withdrawal transfer failed"
+
+Test inputs
 
 
 #### _verifyAuthorizedUpdate
