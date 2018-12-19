@@ -17,7 +17,6 @@ const { mkAddress, getChannelState, getThreadState, getDepositArgs, getWithdrawa
 const clientUtils = new Utils()
 const sg = new StateGenerator()
 
-
 const data = require('../data.json')
 
 should.use(require("chai-as-promised")).use(require('chai-bignumber')(BN)).should()
@@ -77,10 +76,6 @@ function getEventParams(tx, event) {
     }
   }
   return false
-}
-
-function fastForwardDisputeTimer(channel) {
-
 }
 
 // takes a Connext channel state and converts it to the contract format
@@ -413,7 +408,6 @@ contract("ChannelManager", accounts => {
       await token.approve(cm.address, userTokenBalance, { from: viewer.address })
     })
 
-
     it('user deposit wei', async () => {
       const timeout = minutesFromNow(5)
 
@@ -449,22 +443,23 @@ contract("ChannelManager", accounts => {
       const update = validator.generateProposePendingDeposit(state, deposit)
 
       update.sigHub = await getSig(update, hub)
-      const tx = await userAuthorizedUpdate(update, viewer, 0)
+      const tx = await userAuthorizedUpdate(update, viewer, 10)
 
       await verifyUserAuthorizedUpdate(viewer, update, tx)
 
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 10)
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 0)
 
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, 0)
+      const hubReserveWei = await cm.getHubReserveWei()
+      assert.equal(hubReserveWei, 0)
     })
+
   })
 
   describe("hubAuthorizedUpdate", () => {
     beforeEach(async () => {
       await token.transfer(cm.address, 1000, { from: hub.address })
-      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 1000 })
+      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
       initHubReserveWei = await cm.getHubReserveWei()
       initHubReserveTokens = await cm.getHubReserveTokens()
     })
@@ -511,6 +506,7 @@ contract("ChannelManager", accounts => {
       const update = sg.proposePendingDeposit(state, deposit)
       update.sigUser = await getSig(update, viewer)
 
+      // sending 20 wei
       await hubAuthorizedUpdate(update, hub, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
     })
 
@@ -522,6 +518,7 @@ contract("ChannelManager", accounts => {
       const update = sg.proposePendingDeposit(state, deposit)
       update.sigUser = await getSig(update, viewer)
 
+      // sending as viewer
       await hubAuthorizedUpdate(update, viewer, 0).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
     })
 
@@ -531,7 +528,7 @@ contract("ChannelManager", accounts => {
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10,
-        timeout: (new Date().getTime()) / 1000
+        timeout: (new Date().getTime()) / 1000 // timeout is now
       })
       const update = sg.proposePendingDeposit(state, deposit)
       update.sigUser = await getSig(update, viewer)
@@ -540,7 +537,29 @@ contract("ChannelManager", accounts => {
     })
 
     it('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
-      //First submit a deposit at default txCountGlobal
+      // Part 1 - txCount[0] = channel.txCount[0]
+
+      // First submit a deposit at default txCountGlobal = 0
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiHub: 10
+      })
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      await hubAuthorizedUpdate(update, hub, 0)
+
+      // Then submit another deposit at the same txCountGlobal = 0
+      // (will be the same because we're using the same initital state to gen)
+      const newUpdate = sg.proposePendingDeposit(state, deposit)
+      newUpdate.sigUser = await getSig(newUpdate, viewer)
+
+      await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
+    })
+
+    it('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
+      // Part 2 - txCount[0] < channel.txCount[0]
+
+      // First submit a deposit with txCountGlobal = 1
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiHub: 10
@@ -550,18 +569,12 @@ contract("ChannelManager", accounts => {
       update.sigUser = await getSig(update, viewer)
       await hubAuthorizedUpdate(update, hub, 0)
 
-      // Then submit another deposit at the same txCountGlobal
+      // Then submit another deposit with txCountGlobal = 0
       const newUpdate = sg.proposePendingDeposit(state, deposit)
-      newUpdate.txCountGlobal = 1
+      newUpdate.txCountGlobal = 0
       newUpdate.sigUser = await getSig(newUpdate, viewer)
 
       await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
-
-      /*
-        note: this was also tested with newUpdate.txCountGlobal
-        = 0 to make sure that the < condition is satisfied.
-        Can split into separate test if needed.
-      */
     })
 
     it('hubAuthorizedUpdate - fails when txCount[1] < channel.txCount[1]', async () => {
@@ -871,20 +884,19 @@ contract("ChannelManager", accounts => {
       await verifyHubAuthorizedUpdate(viewer, update, tx, true)
 
       const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 17)
+      assert.equal(+totalChannelToken, 17) // 7 + 10
 
       const hubReserveTokens = await cm.getHubReserveTokens()
       assert.equal(hubReserveTokens, initHubReserveTokens - 17)
 
       const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 13)
+      assert.equal(+totalChannelWei, 13) // 5 + 8
 
       const hubReserveWei = await cm.getHubReserveWei()
       assert.equal(hubReserveWei, initHubReserveWei - 13)
     })
 
-    // TODO confirmPending needs to be updated to handle this
-    it.skip('user withdrawal wei direct from hub deposit', async () => {
+    it('user withdrawal wei direct from hub deposit', async () => {
       const withdrawal = getWithdrawalArgs("empty", {
         ...state,
         additionalWeiHubToUser: 5
@@ -902,14 +914,42 @@ contract("ChannelManager", accounts => {
       assert.equal(+totalChannelToken, 0)
 
       const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, initHubReserveTokens)
+      hubReserveTokens.should.be.bignumber.equal(initHubReserveTokens);
 
       const totalChannelWei = await cm.totalChannelWei.call()
       assert.equal(+totalChannelWei, 0)
 
       const hubReserveWei = await cm.getHubReserveWei()
-      assert.equal(hubReserveWei, initHubReserveWei)
+      hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 5);
     })
+
+    it('user withdrawal wei direct from hub deposit', async () => {
+      const withdrawal = getWithdrawalArgs("empty", {
+        ...state,
+        additionalWeiHubToUser: 5
+      })
+      const update = sg.proposePendingWithdrawal(
+        convertChannelState("bn", state),
+        convertWithdrawal("bn", withdrawal)
+      )
+
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+      const totalChannelToken = await cm.totalChannelToken.call()
+      assert.equal(+totalChannelToken, 0)
+
+      const hubReserveTokens = await cm.getHubReserveTokens()
+      hubReserveTokens.should.be.bignumber.equal(initHubReserveTokens);
+
+      const totalChannelWei = await cm.totalChannelWei.call()
+      assert.equal(+totalChannelWei, 0)
+
+      const hubReserveWei = await cm.getHubReserveWei()
+      hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 5);
+    })
+
 
     // TODO update client to use proper withdrawal args
     it.skip('user deposits wei then withdraws wei', async () => {
@@ -948,6 +988,7 @@ contract("ChannelManager", accounts => {
       assert.equal(hubReserveWei, initHubReserveWei)
     })
 
+    // TODO update client to use proper withdrawal args
     it.skip('user deposits tokens with exchange, withdraws wei', async () => {
       const deposit = getDepositArgs("empty", {
         ...state,

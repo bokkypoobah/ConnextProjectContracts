@@ -99,7 +99,7 @@ export class StateGenerator {
     args = {
       ...args,
       targetWeiUser: coalesce(
-        args.targetWeiUser, 
+        args.targetWeiUser,
         prev.balanceWeiUser.sub(args.weiToSell),
       ),
       targetTokenUser: coalesce(
@@ -297,7 +297,7 @@ export class StateGenerator {
     // consider case where confirmPending for a withdrawal with exchange:
     // prev.pendingWeiUpdates = [0, 0, 5, 5] // i.e. hub deposits into user's channel for facilitating exchange
     // generated.balanceWei = [0, 0]
-    // 
+    //
     // initial = [0, 2]
     // prev.balance = [0, 1]
     // prev.pending = [0, 0, 1, 2]
