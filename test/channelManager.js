@@ -191,8 +191,36 @@ async function emptyChannelWithChallenge(state, account, wei = 0) {
   )
 }
 
-async function emptyChannel(state, account, wei = 0) {
-  return await cm.startExit(state.user, { from: account.address, value: wei })
+async function emptyChannel(account, wei = 0) {
+  return await cm.startExit(account.address, { from: account.address, value: wei })
+}
+
+async function submitUserAuthorized(userAccount, hubAccount, wei = 0, ...overrides) {
+  let state = getChannelState("empty", {
+    user: userAccount.address,
+    recipient: userAccount.address,
+    balanceToken: [3, 0],
+    balanceWei: [0, 2],
+    pendingDepositWei: [0, wei],
+    pendingDepositToken: [7, 0],
+    txCount: [1, 1]
+  }, overrides)
+  state.sigHub = getSig(state, hubAccount)
+  return await userAuthorizedUpdate(state, userAccount, wei)
+}
+
+async function submitHubAuthorized(userAccount, hubAccount, wei = 0, ...overrides) {
+  let state = getChannelState("empty", {
+    user: userAccount.address,
+    recipient: userAccount.address,
+    balanceToken: [3, 0],
+    balanceWei: [0, 2],
+    pendingDepositWei: [0, wei],
+    pendingDepositToken: [7, 0],
+    txCount: [1, 1]
+  }, overrides)
+  state.sigUser = getSig(state, userAccount)
+  return await hubAuthorizedUpdate(state, hubAccount, wei)
 }
 
 let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
