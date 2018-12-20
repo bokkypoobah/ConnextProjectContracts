@@ -571,7 +571,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('the timeout must be zero or not have passed.')
       })
 
-      it.only('fails when txCount[0] <= channel.txCount[0]', async () => {
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
         // Part 1 - txCount[0] = channel.txCount[0]
 
         // First submit a deposit at default txCountGlobal = 0
@@ -593,7 +593,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(newUpdate, viewer, 10).should.be.rejectedWith('global txCount must be higher than the current global txCount')
       })
 
-      it.only('fails when txCount[0] <= channel.txCount[0]', async () => {
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
         // Part 2 - txCount[0] < channel.txCount[0]
 
         // First submit a deposit at default txCountGlobal = 1
@@ -616,25 +616,27 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(newUpdate, viewer, 10).should.be.rejectedWith('global txCount must be higher than the current global txCount')
        })
 
-      it('fails when txCount[1] < channel.txCount[1]', async () => {
+      it.only('fails when txCount[1] < channel.txCount[1]', async () => {
         //First submit a deposit at default txCountChain
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
+        const update = validator.generateProposePendingDeposit(state, deposit)
         //txCountGlobal = 1
         update.txCountChain = 1
-        update.sigUser = await getSig(update, viewer)
-        await hubAuthorizedUpdate(update, hub, 0)
+        update.sigHub = await getSig(update, hub)
+        await userAuthorizedUpdate(update, viewer, 10)
 
         // Then submit another deposit at the same txCountChain
-        const newUpdate = sg.proposePendingDeposit(state, deposit)
+        const newUpdate = validator.generateProposePendingDeposit(state, deposit)
         newUpdate.txCountGlobal = 2 // have to increment global count here to pass above test
         newUpdate.txCountChain = 0
-        newUpdate.sigUser = await getSig(newUpdate, viewer)
+        newUpdate.sigHub = await getSig(newUpdate, hub)
 
-        await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
+        await userAuthorizedUpdate(newUpdate, viewer, 10).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
       })
 
       it('fails when wei is not conserved', async () => {

@@ -107,7 +107,7 @@ Expect
     - with "the timeout must be zero or not have passed"
 4. Fails if `txCount[0] <= channel.txCount[0]`
     - with "global txCount must be higher than the current global txCount"
-5. TESTME Fails if `txCount[1] < channel.txCount[1]`
+5. Fails if `txCount[1] < channel.txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
 6. TESTME Fails if wei balances are greater than `channel.weiBalances[2]`
     - with "wei must be conserved"
