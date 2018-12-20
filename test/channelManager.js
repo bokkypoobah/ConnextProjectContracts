@@ -248,14 +248,14 @@ contract("ChannelManager", accounts => {
     channelBalances.weiUser.should.be.bignumber.equal(stateBN.balanceWeiUser);
     channelBalances.weiTotal.should.be.bignumber.equal(
       stateBN.balanceWeiHub.add(stateBN.balanceWeiUser)
-    );
+    )
 
     // Token balances are equal
     channelBalances.tokenHub.should.be.bignumber.equal(stateBN.balanceTokenHub);
     channelBalances.tokenUser.should.be.bignumber.equal(stateBN.balanceTokenUser);
     channelBalances.tokenTotal.should.be.bignumber.equal(
       stateBN.balanceTokenHub.add(stateBN.balanceTokenUser)
-    );
+    )
   }
 
   // status, exitInitiator, and channelClosingTime must be explicitely
@@ -284,6 +284,7 @@ contract("ChannelManager", accounts => {
       transactionHash: tx.tx
     })
 
+    // verify channel balances match the confirmed offchain values
     await verifyChannelBalances(account, confirmed)
 
     // use update for verifying channel details b/c txCounts will match
@@ -318,6 +319,32 @@ contract("ChannelManager", accounts => {
 
   const verifyHubAuthorizedUpdate = async (account, update, tx) => {
     await verifyAuthorizedUpdate(account, update, tx, true)
+  }
+
+  const verifyStartExit = async (account, update, tx, isHub) => {
+    const blockTime = await getBlockTimeByTxHash(tx.tx)
+
+    // explicitely set so they can be checked by verifyChannelDetails
+    update.exitInitiator = isHub ? hub.address : account.address
+    update.status = 1
+    update.channelClosingTime = blockTime + challengePeriod
+
+    await verifyChannelBalances(account, update)
+    await verifyChannelDetails(account, update)
+
+    const updateBN = convertChannelState("bn", update)
+
+    const event = getEventParams(tx, 'DidStartExitChannel')
+    assert.equal(event.user, account.address)
+    assert.equal(event.senderIdx, isHub ? 0 : 1)
+    event.weiBalances[0].should.be.bignumber.equal(updateBN.balanceWeiHub)
+    event.weiBalances[1].should.be.bignumber.equal(updateBN.balanceWeiUser)
+    event.tokenBalances[0].should.be.bignumber.equal(updateBN.balanceTokenHub)
+    event.tokenBalances[1].should.be.bignumber.equal(updateBN.balanceTokenUser)
+    assert.equal(+event.txCount[0], update.txCountGlobal)
+    assert.equal(+event.txCount[1], update.txCountChain)
+    assert.equal(event.threadRoot, emptyRootHash)
+    assert.equal(event.threadCount, 0)
   }
 
   before('deploy contracts', async () => {
@@ -1263,19 +1290,11 @@ contract("ChannelManager", accounts => {
       }
     })
 
-    describe('happy case', () => {
+    describe.only('happy case', () => {
       it('start exit as user', async () => {
         const tx = await startExit(state, viewer, 0)
 
-        const blockTime = await getBlockTimeByTxHash(tx.tx)
-
-        // explicitely set so they can be checked by verifyChannelDetails
-        state.exitInitiator = viewer.address
-        state.status = 1
-        state.channelClosingTime = blockTime + challengePeriod
-
-        await verifyChannelBalances(viewer, state)
-        await verifyChannelDetails(viewer, state)
+        await verifyStartExit(viewer, state, tx, false)
 
         const totalChannelWei = await cm.totalChannelWei.call()
         assert.equal(+totalChannelWei, 10)
@@ -1287,15 +1306,7 @@ contract("ChannelManager", accounts => {
       it('start exit as hub', async () => {
         const tx = await startExit(state, hub, 0)
 
-        const blockTime = await getBlockTimeByTxHash(tx.tx)
-
-        // explicitely set so they can be checked by verifyChannelDetails
-        state.exitInitiator = hub.address
-        state.status = 1
-        state.channelClosingTime = blockTime + challengePeriod
-
-        await verifyChannelBalances(viewer, state)
-        await verifyChannelDetails(viewer, state)
+        await verifyStartExit(viewer, state, tx, true)
 
         const totalChannelWei = await cm.totalChannelWei.call()
         assert.equal(+totalChannelWei, 10)
@@ -1334,7 +1345,7 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  describe.only('startExitWithUpdate', () => {
+  describe('startExitWithUpdate', () => {
     beforeEach(async () => {
       await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
@@ -1366,7 +1377,7 @@ contract("ChannelManager", accounts => {
       }
     })
 
-    describe('happy case', () => {
+    describe.only('happy case', () => {
       it('startExitWithUpdate as user', async () => {
         const payment = getDepositArgs("empty", {
           ...state,
@@ -1380,15 +1391,7 @@ contract("ChannelManager", accounts => {
 
         const tx = await startExitWithUpdate(update, viewer, 0)
 
-        const blockTime = await getBlockTimeByTxHash(tx.tx)
-
-        // explicitely set so they can be checked by verifyChannelDetails
-        update.exitInitiator = viewer.address
-        update.status = 1
-        update.channelClosingTime = blockTime + challengePeriod
-
-        await verifyChannelBalances(viewer, update)
-        await verifyChannelDetails(viewer, update)
+        await verifyStartExit(viewer, update, tx, false)
 
         const totalChannelWei = await cm.totalChannelWei.call()
         assert.equal(+totalChannelWei, 22)
@@ -1417,27 +1420,7 @@ contract("ChannelManager", accounts => {
         // send as hub
         const tx = await startExitWithUpdate(update, hub, 0)
 
-        const blockTime = await getBlockTimeByTxHash(tx.tx)
-
-        // explicitely set so they can be checked by verifyChannelDetails
-        update.exitInitiator = hub.address // note - exiting as hub
-        update.status = 1
-        update.channelClosingTime = blockTime + challengePeriod
-
-        await verifyChannelBalances(viewer, update)
-        await verifyChannelDetails(viewer, update)
-
-        const totalChannelWei = await cm.totalChannelWei.call()
-        assert.equal(+totalChannelWei, 22)
-
-        const hubReserveWei = await cm.getHubReserveWei()
-        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 22)
-
-        const totalChannelToken = await cm.totalChannelToken.call()
-        assert.equal(+totalChannelToken, 24)
-
-        const hubReserveToken = await cm.getHubReserveTokens()
-        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 24)
+        await verifyStartExit(viewer, update, tx, true)
       })
     })
 
