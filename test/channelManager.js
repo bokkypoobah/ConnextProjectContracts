@@ -67,6 +67,11 @@ async function moveForwardSecs(secs) {
   return true
 }
 
+async function getBlockTimeByTxHash(txHash) {
+  const blockNumber = (await web3.eth.getTransaction(txHash)).blockNumber
+  return +(await web3.eth.getBlock(blockNumber)).timestamp
+}
+
 function getEventParams(tx, event) {
   if (tx.logs.length > 0) {
     for (let idx = 0; idx < tx.logs.length; idx++) {
@@ -221,7 +226,7 @@ async function submitHubAuthorized(userAccount, hubAccount, wei = 0, ...override
 }
 
 let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
-  initHubReserveToken
+  initHubReserveToken, challengePeriod
 
 // TODO - because we're testing the JS, we should also be testing
 // that we properly handle BigNumbers, and use them in our tests
@@ -333,6 +338,8 @@ contract("ChannelManager", accounts => {
     }
 
     validator = new Validator(web3, hub.address)
+
+    challengePeriod = +(await cm.challengePeriod.call()).toString()
   })
 
   beforeEach(async () => {
@@ -355,8 +362,8 @@ contract("ChannelManager", accounts => {
     it("verify init parameters", async () => {
       const hubAddress = await cm.hub.call()
       assert.equal(hubAddress, hub.address)
-      const challengePeriod = await cm.challengePeriod.call()
-      assert.equal(data.channelManager.challengePeriod, challengePeriod)
+      // challengePeriod set in *before* block
+      assert.equal(+data.channelManager.challengePeriod, challengePeriod)
       const approvedToken = await cm.approvedToken.call()
       assert.equal(token.address, approvedToken)
     })
@@ -473,7 +480,7 @@ contract("ChannelManager", accounts => {
 
   })
 
-  describe.only("hubAuthorizedUpdate", () => {
+  describe("hubAuthorizedUpdate", () => {
     beforeEach(async () => {
       await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
@@ -1231,7 +1238,7 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  describe.skip('startExit', () => {
+  describe('startExit', () => {
     beforeEach(async () => {
       const userTokenBalance = 1000
       await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
@@ -1252,20 +1259,27 @@ contract("ChannelManager", accounts => {
       })
 
       initHubReserveWei = await cm.getHubReserveWei()
+
+      // initial state is the confirmed values with txCountGlobal rolled back
+      state = {
+        ...confirmed,
+        txCountGlobal: confirmed.txCountGlobal - 1
+      }
     })
 
-    describe('happy case', () => {
+    describe.only('happy case', () => {
       it('start exit as user', async () => {
-        await startExit(state, viewer, 0)
+        const tx = await startExit(state, viewer, 0)
 
-        const channelDetails = await cm.getChannelDetails(viewer.address)
+        const blockTime = await getBlockTimeByTxHash(tx.tx)
 
-        // verify that channel state remains unchanged
-        // verify that the status is now "closing"
-        // verify closing time
-        // exit initiator
+        // explicitely set so they can be checked by verifyChannelDetails
+        state.exitInitiator = viewer.address
+        state.status = 1
+        state.channelClosingTime = blockTime + challengePeriod
 
-
+        await verifyChannelBalances(viewer, state)
+        await verifyChannelDetails(viewer, state)
 
         const totalChannelWei = await cm.totalChannelWei.call()
         assert.equal(+totalChannelWei, 10)
