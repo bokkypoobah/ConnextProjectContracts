@@ -232,42 +232,59 @@ contract("ChannelManager", accounts => {
 
   // TODO add verification of reserves by including initital reserve values
 
+  // asserts that the onchain-channel state matches provided offchain state
+
+  const verifyChannelBalances = async (account, state) => {
+    const stateBN = convertChannelState("bn", state)
+    const channelBalances = await cm.getChannelBalances(account.address)
+
+    // Wei balances are equal
+    channelBalances.weiHub.should.be.bignumber.equal(stateBN.balanceWeiHub);
+    channelBalances.weiUser.should.be.bignumber.equal(stateBN.balanceWeiUser);
+    channelBalances.weiTotal.should.be.bignumber.equal(
+      stateBN.balanceWeiHub.add(stateBN.balanceWeiUser)
+    );
+
+    // Token balances are equal
+    channelBalances.tokenHub.should.be.bignumber.equal(stateBN.balanceTokenHub);
+    channelBalances.tokenUser.should.be.bignumber.equal(stateBN.balanceTokenUser);
+    channelBalances.tokenTotal.should.be.bignumber.equal(
+      stateBN.balanceTokenHub.add(stateBN.balanceTokenUser)
+    );
+  }
+
+  // status, exitInitiator, and channelClosingTime must be explicitely
+  // set on the state object or are assumed to be 0, emptyAddress, and 0
+  const verifyChannelDetails = async (account, state) => {
+    const stateBN = convertChannelState("bn", state)
+    const channelDetails = await cm.getChannelDetails(account.address)
+    // Tx counts are equal to the original update (state increments)
+    channelDetails.txCountGlobal.should.be.bignumber.equal(stateBN.txCountGlobal)
+    channelDetails.txCountChain.should.be.bignumber.equal(stateBN.txCountChain)
+
+    // Thread states are equal
+    assert.equal(channelDetails.threadRoot, state.threadRoot)
+    assert.equal(channelDetails.threadCount, state.threadCount)
+
+    // check exit params
+    channelDetails.channelClosingTime.should.be.bignumber.equal(
+      state.channelClosingTime ? state.channelClosingTime : 0
+    )
+    assert.equal(channelDetails.exitInitiator, state.exitInitiator || emptyAddress)
+    assert.equal(channelDetails.status, state.status ? state.status : 0)
+  }
+
   const verifyAuthorizedUpdate = async (account, update, tx, isHub) => {
     const confirmed = await validator.generateConfirmPending(update, {
       transactionHash: tx.tx
     })
 
-    const channelBalances = await cm.getChannelBalances(account.address)
-    const channelDetails = await cm.getChannelDetails(account.address)
+    await verifyChannelBalances(account, confirmed)
+
+    // use update for verifying channel details b/c txCounts will match
+    await verifyChannelDetails(account, update)
 
     const updateBN = convertChannelState("bn", update)
-    const confirmedBN = convertChannelState("bn", confirmed)
-
-    // Wei balances are equal
-    channelBalances.weiHub.should.be.bignumber.equal(confirmedBN.balanceWeiHub);
-    channelBalances.weiUser.should.be.bignumber.equal(confirmedBN.balanceWeiUser);
-    channelBalances.weiTotal.should.be.bignumber.equal(
-      confirmedBN.balanceWeiHub.add(confirmedBN.balanceWeiUser)
-    );
-
-    // Token balances are equal
-    channelBalances.tokenHub.should.be.bignumber.equal(confirmedBN.balanceTokenHub);
-    channelBalances.tokenUser.should.be.bignumber.equal(confirmedBN.balanceTokenUser);
-    channelBalances.tokenTotal.should.be.bignumber.equal(
-      confirmedBN.balanceTokenHub.add(confirmedBN.balanceTokenUser)
-    );
-
-    // Tx counts are equal to the original update (confirmed increments)
-    assert.equal(+channelDetails.txCountGlobal, update.txCountGlobal)
-    assert.equal(+channelDetails.txCountChain, update.txCountChain)
-
-    // Thread states are equal
-    assert.equal(channelDetails.threadRoot, update.threadRoot)
-    assert.equal(channelDetails.threadCount, update.threadCount)
-
-    // exitInitiator should not be set, and status should not change
-    assert.equal(channelDetails.exitInitiator, emptyAddress)
-    assert.equal(channelDetails.status, 0)
 
     const event = getEventParams(tx, 'DidUpdateChannel')
     assert.equal(event.user, account.address)
@@ -456,7 +473,7 @@ contract("ChannelManager", accounts => {
 
   })
 
-  describe("hubAuthorizedUpdate", () => {
+  describe.only("hubAuthorizedUpdate", () => {
     beforeEach(async () => {
       await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
@@ -1212,10 +1229,9 @@ contract("ChannelManager", accounts => {
         transactionHash: tx.tx
       })
     })
-
   })
 
-  describe.only('startExit', () => {
+  describe.skip('startExit', () => {
     beforeEach(async () => {
       const userTokenBalance = 1000
       await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
@@ -1243,7 +1259,13 @@ contract("ChannelManager", accounts => {
         await startExit(state, viewer, 0)
 
         const channelDetails = await cm.getChannelDetails(viewer.address)
-        console.log(channelDetails)
+
+        // verify that channel state remains unchanged
+        // verify that the status is now "closing"
+        // verify closing time
+        // exit initiator
+
+
 
         const totalChannelWei = await cm.totalChannelWei.call()
         assert.equal(+totalChannelWei, 10)
