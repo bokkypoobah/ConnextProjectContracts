@@ -221,7 +221,7 @@ async function submitHubAuthorized(userAccount, hubAccount, wei = 0, ...override
 }
 
 let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
-  initHubReserveTokens
+  initHubReserveToken
 
 // TODO - because we're testing the JS, we should also be testing
 // that we properly handle BigNumbers, and use them in our tests
@@ -353,28 +353,28 @@ contract("ChannelManager", accounts => {
       assert.equal(reserveWei, weiAmount)
     })
 
-    it("accept tokens - getHubReserveTokens", async () => {
+    it("accept tokens - getHubReserveTokenss", async () => {
       const tokenAmount = 1
       await token.transfer(cm.address, tokenAmount, { from: hub.address })
-      const reserveTokens = await cm.getHubReserveTokens()
-      assert.equal(reserveTokens, tokenAmount)
+      const reserveToken = await cm.getHubReserveTokens()
+      assert.equal(reserveToken, tokenAmount)
     })
 
     describe("hubContractWithdraw", () => {
       it("happy case", async () => {
         const weiAmount = 1
         const tokenAmount = 1
-        const hubInitialTokens = await token.balanceOf(hub.address)
+        const hubInitialToken = await token.balanceOf(hub.address)
         await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: weiAmount })
         await token.transfer(cm.address, tokenAmount, { from: hub.address })
         await cm.hubContractWithdraw(weiAmount, tokenAmount)
-        const reserveTokens = await cm.getHubReserveTokens()
+        const reserveToken = await cm.getHubReserveTokens()
         const reserveWei = await cm.getHubReserveWei()
         assert.equal(reserveWei, 0)
-        assert.equal(reserveTokens, 0)
+        assert.equal(reserveToken, 0)
 
-        const hubFinalTokens = await web3.eth.getBalance(hub.address)
-        assert.equal(hubInitialTokens, hubInitialTokens)
+        const hubFinalToken = await web3.eth.getBalance(hub.address)
+        assert.equal(hubInitialToken, hubInitialToken)
       })
 
       it("fails with insufficient ETH", async () => {
@@ -388,13 +388,13 @@ contract("ChannelManager", accounts => {
         )
       })
 
-      it("fails with insufficient tokens", async () => {
+      it("fails with insufficient token", async () => {
         const weiAmount = 1
         const tokenAmount = 1
-        const tokensToWithdraw = tokenAmount + 1
+        const tokenToWithdraw = tokenAmount + 1
         await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: weiAmount })
         await token.transfer(cm.address, tokenAmount, { from: hub.address })
-        await cm.hubContractWithdraw(weiAmount, tokensToWithdraw).should.be.rejectedWith(
+        await cm.hubContractWithdraw(weiAmount, tokenToWithdraw).should.be.rejectedWith(
           `${SolRevert} hubContractWithdraw: Contract token funds not sufficient to withdraw`
         )
       })
@@ -443,7 +443,7 @@ contract("ChannelManager", accounts => {
       const update = validator.generateProposePendingDeposit(state, deposit)
 
       update.sigHub = await getSig(update, hub)
-      const tx = await userAuthorizedUpdate(update, viewer, 10)
+      const tx = await userAuthorizedUpdate(update, viewer, 0)
 
       await verifyUserAuthorizedUpdate(viewer, update, tx)
 
@@ -461,578 +461,735 @@ contract("ChannelManager", accounts => {
       await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
       initHubReserveWei = await cm.getHubReserveWei()
-      initHubReserveTokens = await cm.getHubReserveTokens()
+      initHubReserveToken = await cm.getHubReserveTokens()
     })
 
-    it('hub deposit wei', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
+    describe("happy case", () => {
+      it('hub deposit wei', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 10)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        assert.equal(hubReserveWei, initHubReserveWei - 10)
       })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
 
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 10)
+      it('hub deposit token', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositTokenHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
 
-      const hubReserveWei = await cm.getHubReserveWei()
-      assert.equal(hubReserveWei, initHubReserveWei - 10)
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 10)
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        assert.equal(hubReserveToken, initHubReserveToken - 10)
+      })
+
+      it('hub deposit wei for user', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 10)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        assert.equal(hubReserveWei, initHubReserveWei - 10)
+      })
+
+      it('hub deposit token for user', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositTokenUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 10)
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        assert.equal(hubReserveToken, initHubReserveToken - 10)
+      })
+
+      it('hub deposit wei/token for itself and user', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 5,
+          depositTokenHub: 7,
+          depositWeiUser: 8,
+          depositTokenUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 17) // 7 + 10
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        assert.equal(hubReserveToken, initHubReserveToken - 17)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 13) // 5 + 8
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        assert.equal(hubReserveWei, initHubReserveWei - 13)
+      })
+
+      it('user withdrawal wei direct from hub deposit', async () => {
+        const withdrawal = getWithdrawalArgs("empty", {
+          ...state,
+          additionalWeiHubToUser: 5
+        })
+        const update = sg.proposePendingWithdrawal(
+          convertChannelState("bn", state),
+          convertWithdrawal("bn", withdrawal)
+        )
+
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 0)
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken);
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 0)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 5);
+      })
+
+      it('user withdrawal token direct from hub deposit', async () => {
+        const withdrawal = getWithdrawalArgs("empty", {
+          ...state,
+          additionalTokenHubToUser: 5
+        })
+        const update = sg.proposePendingWithdrawal(
+          convertChannelState("bn", state),
+          convertWithdrawal("bn", withdrawal)
+        )
+
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 0)
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 5);
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 0)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei);
+      })
+
+      it('hub deposit wei for user, user pays hub, hub checkpoints', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const confirmed = await validator.generateConfirmPending(update, {
+          transactionHash: tx.tx
+        })
+
+        // apply payment and send to chain
+        const payment = getDepositArgs("empty", {
+          ...confirmed,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update2 = validator.generateChannelPayment(confirmed, payment)
+        update2.sigUser = await getSig(update2, viewer)
+        const tx2 = await hubAuthorizedUpdate(update2, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update2, tx2, true)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        totalChannelWei.should.be.bignumber.equal(10);
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 10);
+      })
+
+      it('hub deposit wei for user, user pays hub, they both withdraw', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const confirmed = await validator.generateConfirmPending(update, {
+          transactionHash: tx.tx
+        })
+
+        // apply payment but don't send to chain
+        const payment = getDepositArgs("empty", {
+          ...confirmed,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update2 = validator.generateChannelPayment(confirmed, payment)
+
+        // withdraw all wei
+        const withdrawal = getWithdrawalArgs("empty", {
+          ...update2,
+          targetWeiUser: 0,
+          targetWeiHub: 0
+        })
+        const update3 = validator.generateProposePendingWithdrawal(
+          update2,
+          convertWithdrawal("bn", withdrawal)
+        )
+        update3.sigUser = await getSig(update3, viewer)
+        const tx2 = await hubAuthorizedUpdate(update3, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update3, tx2, true)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        totalChannelWei.should.be.bignumber.equal(0);
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 7);
+      })
+
+      it('hub deposit token for user, user pays hub, they both withdraw', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositTokenUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        const confirmed = await validator.generateConfirmPending(update, {
+          transactionHash: tx.tx
+        })
+
+        // apply payment but don't send to chain
+        const payment = getDepositArgs("empty", {
+          ...confirmed,
+          amountWei: 0,
+          amountToken: 3,
+          recipient: 'hub'
+        })
+        const update2 = validator.generateChannelPayment(confirmed, payment)
+
+        // withdraw all token
+        const withdrawal = getWithdrawalArgs("empty", {
+          ...update2,
+          targetTokenUser: 0,
+          targetTokenHub: 0
+        })
+        const update3 = validator.generateProposePendingWithdrawal(
+          update2,
+          convertWithdrawal("bn", withdrawal)
+        )
+        update3.sigUser = await getSig(update3, viewer)
+        const tx2 = await hubAuthorizedUpdate(update3, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update3, tx2, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        totalChannelToken.should.be.bignumber.equal(0);
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 7);
+      })
+
+      // TODO exchange in channel, then withdraw
     })
 
-    it('hub deposit tokens', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositTokenHub: 10
+    describe("failing requires", () => {
+      // Tests based on the initial happy case where the hub deposits 10 wei
+
+      it('fails when sent wei (no payable)', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+
+        // sending 20 wei
+        await hubAuthorizedUpdate(update, hub, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
       })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
 
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+      it('fails when msg.sender is not hub', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
 
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 10)
+        // sending as viewer
+        await hubAuthorizedUpdate(update, viewer, 0).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
+      })
 
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, initHubReserveTokens - 10)
+      //TODO it('hubAuthorizedUpdate - fails when channel status is not "Open"')
+
+      it('fails when timeout expired', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10,
+          timeout: (new Date().getTime()) / 1000 // timeout is now
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('the timeout must be zero or not have passed')
+      })
+
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
+        // Part 1 - txCount[0] = channel.txCount[0]
+
+        // First submit a deposit at default txCountGlobal = 0
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        await hubAuthorizedUpdate(update, hub, 0)
+
+        // Then submit another deposit at the same txCountGlobal = 0
+        // (will be the same because we're using the same initital state to gen)
+        const newUpdate = sg.proposePendingDeposit(state, deposit)
+        newUpdate.sigUser = await getSig(newUpdate, viewer)
+
+        await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
+      })
+
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
+        // Part 2 - txCount[0] < channel.txCount[0]
+
+        // First submit a deposit with txCountGlobal = 1
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.txCountGlobal = 1
+        update.sigUser = await getSig(update, viewer)
+        await hubAuthorizedUpdate(update, hub, 0)
+
+        // Then submit another deposit with txCountGlobal = 0
+        const newUpdate = sg.proposePendingDeposit(state, deposit)
+        newUpdate.txCountGlobal = 0
+        newUpdate.sigUser = await getSig(newUpdate, viewer)
+
+        await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
+      })
+
+      it('fails when txCount[1] < channel.txCount[1]', async () => {
+        //First submit a deposit at default txCountChain
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        //txCountGlobal = 1
+        update.txCountChain = 1
+        update.sigUser = await getSig(update, viewer)
+        await hubAuthorizedUpdate(update, hub, 0)
+
+        // Then submit another deposit at the same txCountChain
+        const newUpdate = sg.proposePendingDeposit(state, deposit)
+        newUpdate.txCountGlobal = 2 // have to increment global count here to pass above test
+        newUpdate.txCountChain = 0
+        newUpdate.sigUser = await getSig(newUpdate, viewer)
+
+        await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
+      })
+
+      it('fails when wei is not conserved', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.balanceWeiHub = 20
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('wei must be conserved')
+      })
+
+      it('fails when token are not conserved', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.balanceTokenHub = 20
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('tokens must be conserved')
+      })
+
+      it('fails when insufficient reserve wei', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 1001
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve wei for deposits')
+      })
+
+      it('fails when insufficient reserve token', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositTokenHub: 1001
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve tokens for deposits')
+      })
+
+      it('fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10,
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.pendingWithdrawalWeiUser = 20 //also tested here with hub withdrawal
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient wei')
+      })
+
+      it('fails when current total channel token + both deposits is less than final balances + withdrawals', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositTokenHub: 10,
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.pendingWithdrawalTokenUser = 20 //also tested here with hub withdrawal
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient token')
+      })
+
+      it('fails when user is hub', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.user = hub.address
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be hub')
+      })
+
+      it('fails when user is contract', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.user = cm.address
+        update.sigUser = await getSig(update, viewer)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be channel manager')
+      })
+
+      it('fails when address in sig is not address of channel manager', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.contractAddress = emptyAddress
+        update.sigUser = await getSig(update, viewer)
+        update.contractAddress = cm.address
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when user in sig is incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.user = emptyAddress
+        update.sigUser = await getSig(update, viewer)
+        update.user = viewer.address
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when weiBalances in sig are incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.balanceWeiHub = 5
+        update.sigUser = await getSig(update, viewer)
+        update.balanceWeiHub = 0
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when tokenBalances in sig are incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.balanceTokenHub = 5
+        update.sigUser = await getSig(update, viewer)
+        update.balanceTokenHub = 0
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when pendingWeiBalances in sig are incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.pendingDepositWeiHub = 0
+        update.sigUser = await getSig(update, viewer)
+        update.pendingDepositWeiHub = 10
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when pendingTokenBalances in sig are incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.pendingDepositTokenHub = 10
+        update.sigUser = await getSig(update, viewer)
+        update.pendingDepositTokenHub = 0
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when txCount in sig is incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.txCountGlobal = 2
+        update.sigUser = await getSig(update, viewer)
+        update.txCountGlobal = 1
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when threadRoot in sig is incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.threadRoot = emptyAddress + 1
+        update.sigUser = await getSig(update, viewer)
+        update.threadRoot = emptyAddress
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when threadCount in sig is incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.threadCount = 1
+        update.sigUser = await getSig(update, viewer)
+        update.threadCount = 0
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when timeout in sig is incorrect', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.timeout = 1
+        update.sigUser = await getSig(update, viewer)
+        update.timeout = 0
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
+
+      it('fails when user is not signer', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, hub)
+
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+      })
     })
 
-    it('hubAuthorizedUpdate - fails when sent wei (no payable)', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-
-      // sending 20 wei
-      await hubAuthorizedUpdate(update, hub, 20).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
-    })
-
-    it('hubAuthorizedUpdate - fails when msg.sender is not hub', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-
-      // sending as viewer
-      await hubAuthorizedUpdate(update, viewer, 0).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
-    })
-
-    //TODO it('hubAuthorizedUpdate - fails when channel status is not "Open"')
-
-    it('hubAuthorizedUpdate - fails when timeout expired', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10,
-        timeout: (new Date().getTime()) / 1000 // timeout is now
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('the timeout must be zero or not have passed')
-    })
-
-    it('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
-      // Part 1 - txCount[0] = channel.txCount[0]
-
-      // First submit a deposit at default txCountGlobal = 0
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-      await hubAuthorizedUpdate(update, hub, 0)
-
-      // Then submit another deposit at the same txCountGlobal = 0
-      // (will be the same because we're using the same initital state to gen)
-      const newUpdate = sg.proposePendingDeposit(state, deposit)
-      newUpdate.sigUser = await getSig(newUpdate, viewer)
-
-      await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
-    })
-
-    it('hubAuthorizedUpdate - fails when txCount[0] <= channel.txCount[0]', async () => {
-      // Part 2 - txCount[0] < channel.txCount[0]
-
-      // First submit a deposit with txCountGlobal = 1
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.txCountGlobal = 1
-      update.sigUser = await getSig(update, viewer)
-      await hubAuthorizedUpdate(update, hub, 0)
-
-      // Then submit another deposit with txCountGlobal = 0
-      const newUpdate = sg.proposePendingDeposit(state, deposit)
-      newUpdate.txCountGlobal = 0
-      newUpdate.sigUser = await getSig(newUpdate, viewer)
-
-      await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount')
-    })
-
-    it('hubAuthorizedUpdate - fails when txCount[1] < channel.txCount[1]', async () => {
-      //First submit a deposit at default txCountChain
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      //txCountGlobal = 1
-      update.txCountChain = 1
-      update.sigUser = await getSig(update, viewer)
-      await hubAuthorizedUpdate(update, hub, 0)
-
-      // Then submit another deposit at the same txCountChain
-      const newUpdate = sg.proposePendingDeposit(state, deposit)
-      newUpdate.txCountGlobal = 2 // have to increment global count here to pass above test
-      newUpdate.txCountChain = 0
-      newUpdate.sigUser = await getSig(newUpdate, viewer)
-
-      await hubAuthorizedUpdate(newUpdate, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
-    })
-
-    it('hubAuthorizedUpdate - fails when wei is not conserved', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.balanceWeiHub = 20
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('wei must be conserved')
-    })
-
-    it('hubAuthorizedUpdate - fails when tokens are not conserved', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.balanceTokenHub = 20
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('tokens must be conserved')
-    })
-
-    it('hubAuthorizedUpdate - fails when insufficient reserve wei', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 1001
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve wei for deposits')
-    })
-
-    it('hubAuthorizedUpdate - fails when insufficient reserve tokens', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositTokenHub: 1001
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve tokens for deposits')
-    })
-
-    it('hubAuthorizedUpdate - fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10,
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.pendingWithdrawalWeiUser = 20 //also tested here with hub withdrawal
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient wei')
-    })
-
-    it('hubAuthorizedUpdate - fails when current total channel tokens + both deposits is less than final balances + withdrawals', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositTokenHub: 10,
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.pendingWithdrawalTokenUser = 20 //also tested here with hub withdrawal
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient token')
-    })
-
-    it('hubAuthorizedUpdate - fails when user is hub', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.user = hub.address
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be hub')
-    })
-
-    it('hubAuthorizedUpdate - fails when user is contract', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.user = cm.address
-      update.sigUser = await getSig(update, viewer)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be channel manager')
-    })
-
-    it('hubAuthorizedUpdate - fails when address in sig is not address of channel manager', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.contractAddress = emptyAddress
-      update.sigUser = await getSig(update, viewer)
-      update.contractAddress = cm.address
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when user in sig is incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.user = emptyAddress
-      update.sigUser = await getSig(update, viewer)
-      update.user = viewer.address
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when weiBalances in sig are incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.balanceWeiHub = 5
-      update.sigUser = await getSig(update, viewer)
-      update.balanceWeiHub = 0
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when tokenBalances in sig are incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.balanceTokenHub = 5
-      update.sigUser = await getSig(update, viewer)
-      update.balanceTokenHub = 0
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when pendingWeiBalances in sig are incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.pendingDepositWeiHub = 0
-      update.sigUser = await getSig(update, viewer)
-      update.pendingDepositWeiHub = 10
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when pendingTokenBalances in sig are incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.pendingDepositTokenHub = 10
-      update.sigUser = await getSig(update, viewer)
-      update.pendingDepositTokenHub = 0
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when txCount in sig is incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.txCountGlobal = 2
-      update.sigUser = await getSig(update, viewer)
-      update.txCountGlobal = 1
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when threadRoot in sig is incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.threadRoot = emptyAddress + 1
-      update.sigUser = await getSig(update, viewer)
-      update.threadRoot = emptyAddress
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when threadCount in sig is incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.threadCount = 1
-      update.sigUser = await getSig(update, viewer)
-      update.threadCount = 0
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when timeout in sig is incorrect', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.timeout = 1
-      update.sigUser = await getSig(update, viewer)
-      update.timeout = 0
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hubAuthorizedUpdate - fails when user is not signer', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, hub)
-
-      await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
-    })
-
-    it('hub deposit wei for user', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiUser: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
-
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
-
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 10)
-
-      const hubReserveWei = await cm.getHubReserveWei()
-      assert.equal(hubReserveWei, initHubReserveWei - 10)
-    })
-
-    it('hub deposit tokens for user', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositTokenUser: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
-
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
-
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 10)
-
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, initHubReserveTokens - 10)
-    })
-
-    it('hub deposit wei/token for itself and user', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiHub: 5,
-        depositTokenHub: 7,
-        depositWeiUser: 8,
-        depositTokenUser: 10
-      })
-      const update = sg.proposePendingDeposit(state, deposit)
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
-
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
-
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 17) // 7 + 10
-
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, initHubReserveTokens - 17)
-
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 13) // 5 + 8
-
-      const hubReserveWei = await cm.getHubReserveWei()
-      assert.equal(hubReserveWei, initHubReserveWei - 13)
-    })
-
-    it('user withdrawal wei direct from hub deposit', async () => {
-      const withdrawal = getWithdrawalArgs("empty", {
-        ...state,
-        additionalWeiHubToUser: 5
-      })
-      const update = sg.proposePendingWithdrawal(
-        convertChannelState("bn", state),
-        convertWithdrawal("bn", withdrawal)
-      )
-
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
-
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 0)
-
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      hubReserveTokens.should.be.bignumber.equal(initHubReserveTokens);
-
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 0)
-
-      const hubReserveWei = await cm.getHubReserveWei()
-      hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 5);
-    })
-
-    it('user withdrawal wei direct from hub deposit', async () => {
-      const withdrawal = getWithdrawalArgs("empty", {
-        ...state,
-        additionalWeiHubToUser: 5
-      })
-      const update = sg.proposePendingWithdrawal(
-        convertChannelState("bn", state),
-        convertWithdrawal("bn", withdrawal)
-      )
-
-      update.sigUser = await getSig(update, viewer)
-      const tx = await hubAuthorizedUpdate(update, hub, 0)
-      await verifyHubAuthorizedUpdate(viewer, update, tx, true)
-
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 0)
-
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      hubReserveTokens.should.be.bignumber.equal(initHubReserveTokens);
-
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 0)
-
-      const hubReserveWei = await cm.getHubReserveWei()
-      hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 5);
-    })
-
-
-    // TODO update client to use proper withdrawal args
-    it.skip('user deposits wei then withdraws wei', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiUser: 10
-      })
-      const update1 = sg.proposePendingDeposit(state, deposit)
-      update1.sigUser = await getSig(update1, viewer)
-      const tx1 = await hubAuthorizedUpdate(update1, hub, 0)
-      await verifyHubAuthorizedUpdate(viewer, update1, tx1, true)
-
-      const withdrawal = getWithdrawalArgs("empty", {
-        ...update1,
-        withdrawWeiUser: 9
-      })
-      const update2 = sg.proposePendingWithdrawal(
-        convertChannelState("bn", update1),
-        convertWithdrawal("bn", withdrawal)
-      )
-
-      update2.sigUser = await getSig(update2, viewer)
-      const tx = await hubAuthorizedUpdate(update2, hub, 0)
-      await verifyHubAuthorizedUpdate(viewer, update2, tx, true)
-
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 0)
-
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, initHubReserveTokens)
-
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 1)
-
-      const hubReserveWei = await cm.getHubReserveWei()
-      assert.equal(hubReserveWei, initHubReserveWei)
-    })
-
-    // TODO update client to use proper withdrawal args
-    it.skip('user deposits tokens with exchange, withdraws wei', async () => {
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositTokenUser: 10
-      })
-      const update1 = sg.proposePendingDeposit(state, deposit)
-      update1.sigUser = await getSig(update1, viewer)
-      const tx1 = await hubAuthorizedUpdate(update1, hub, 0)
-
-      await verifyHubAuthorizedUpdate(viewer, update1, tx1, true)
-
-      const confirmed = await validator.generateConfirmPending(update1, {
-        transactionHash: tx1.tx
+    describe('edge cases', () => {
+      it('wei/token user/hub deposit > withdrawal > 0', async () => {
+        // TODO use proposePendingUpdate
+        const update = {
+          ...state,
+          pendingDepositWeiHub: 2,
+          pendingWithdrawalWeiHub: 1,
+          pendingDepositWeiUser: 5,
+          pendingWithdrawalWeiUser: 3,
+          pendingDepositTokenHub: 6,
+          pendingWithdrawalTokenHub: 4,
+          pendingDepositTokenUser: 13,
+          pendingWithdrawalTokenUser: 7,
+          txCountGlobal: state.txCountGlobal + 1,
+          txCountChain: state.txCountChain + 1
+        }
+
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+        // deposits - withdrawals
+        // 2 + 5 - 1 - 3 = 3
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 3)
+
+        // initial - deposits + hub withdrawals
+        // initial - (2 + 5) + 1
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 6)
+
+        // deposits - withdrawals
+        // 6 + 13 - 4 - 7 = 8
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 8)
+
+        // initial - deposits + hub withdrawals
+        // initial - (6 + 13) + 4
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 15)
       })
 
-      const withdrawal = getWithdrawalArgs("empty", {
-        ...confirmed,
-        withdrawalWeiUser: 10,
-        depositTokenUser: 5,
+      it.skip('wei/token user/hub withdrawal > deposit > 0', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10,
+          depositWeiUser: 11,
+          depositTokenHub: 12,
+          depositTokenUser: 13,
+          timeout: minutesFromNow(5) // TODO remove this, not needed for hubAuth
+        })
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        confirmed = await validator.generateConfirmPending(update, {
+          transactionHash: tx.tx
+        })
+
+        const update2 = {
+          ...confirmed,
+          pendingDepositWeiHub: 1,
+          pendingWithdrawalWeiHub: 2,
+          pendingDepositWeiUser: 3,
+          pendingWithdrawalWeiUser: 5,
+          pendingDepositTokenHub: 4,
+          pendingWithdrawalTokenHub: 6,
+          pendingDepositTokenUser: 7,
+          pendingWithdrawalTokenUser: 13,
+          txCountGlobal: confirmed.txCountGlobal + 1,
+          txCountChain: confirmed.txCountChain + 1
+        }
+
+        // TODO use proposePendingUpdate
+        // Duh, it's not taking into account the balance pre-processing
+
+        update2.sigUser = await getSig(update2, viewer)
+        const tx2 = await hubAuthorizedUpdate(update2, hub, 0)
+        await verifyHubAuthorizedUpdate(viewer, update2, tx2, true)
+
+        // initial balance + deposits - withdrawals
+        // 10 + 11 + 1 + 3 - 2 - 5 = 18
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 18)
+
+        // initial reserve - deposit1 - deposit2 + hub withdrawals
+        // initial - (10 + 11) - (1 + 3) + 2 = initial - 23
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 23)
+
+        // initial balance + deposits - withdrawals
+        // 12 + 13 + 4 + 7 - 6 - 13 = 17
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 17)
+
+        // initial reserve - deposit1 - deposit2 + hub withdrawals
+        // initial - (12 + 13) - (4 + 7) + 6 = initial - 30
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 30)
       })
 
-      const update2 = sg.proposePendingWithdrawal(
-        convertChannelState("bn", confirmed),
-        convertWithdrawal("bn", withdrawal)
-      )
+      // 3. Exchange
+      // 4. Recipient
 
-      update2.sigUser = await getSig(update2, viewer)
-      const tx2 = await hubAuthorizedUpdate(update2, hub, 0)
-      await verifyHubAuthorizedUpdate(viewer, update2, tx2, true)
-
-      const totalChannelToken = await cm.totalChannelToken.call()
-      assert.equal(+totalChannelToken, 5)
-
-      const hubReserveTokens = await cm.getHubReserveTokens()
-      assert.equal(hubReserveTokens, initHubReserveTokens - 5)
-
-      const totalChannelWei = await cm.totalChannelWei.call()
-      assert.equal(+totalChannelWei, 0)
-
-      const hubReserveWei = await cm.getHubReserveWei()
-      assert.equal(hubReserveWei, initHubReserveWei)
     })
   })
 
+  // TODO use proposePendingUpdate to do edge cases
   describe.skip("userAuthorizedUpdate - withdrawal", () => {
     let confirmed
 
@@ -1056,7 +1213,120 @@ contract("ChannelManager", accounts => {
       })
     })
 
-    // TODO once more connext client functions are added to support
+  })
+
+  describe.only('startExit', () => {
+    beforeEach(async () => {
+      const userTokenBalance = 1000
+      await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
+      await token.approve(cm.address, userTokenBalance, { from: viewer.address })
+
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 10,
+        timeout: minutesFromNow(5)
+      })
+      const update = validator.generateProposePendingDeposit(state, deposit)
+
+      update.sigHub = await getSig(update, hub)
+      const tx = await userAuthorizedUpdate(update, viewer, 10)
+
+      confirmed = await validator.generateConfirmPending(update, {
+        transactionHash: tx.tx
+      })
+
+      initHubReserveWei = await cm.getHubReserveWei()
+    })
+
+    describe('happy case', () => {
+      it('start exit as user', async () => {
+        await startExit(state, viewer, 0)
+
+        const channelDetails = await cm.getChannelDetails(viewer.address)
+        console.log(channelDetails)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 10)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei)
+      })
+
+      it('start exit as hub', async () => {
+
+      })
+
+    })
+
+    describe('failing requires', () => {
+      it('fails when user is hub', async () => {
+
+      })
+
+      it('fails when user is contract', async () => {
+
+      })
+
+      it('fails when channel is open', async () => {
+
+      })
+
+      it('fails when exit initiator is not user or hub', async () => {
+
+      })
+    })
+
+    describe('edge cases', () => {
+      it('startExit a zero state', async () => {
+
+      })
+
+      it('successfully startExit twice in a row', async () => {
+
+      })
+    })
+  })
+
+  describe('startExitWithUpdate', () => {
+    describe('happy case', () => {
+
+    })
+
+    describe('failing requires', () => {
+
+    })
+
+    describe('edge cases', () => {
+
+    })
+  })
+
+  describe('emptyChannelWithChallenge', () => {
+    describe('happy case', () => {
+
+    })
+
+    describe('failing requires', () => {
+
+    })
+
+    describe('edge cases', () => {
+
+    })
+  })
+
+  describe('emptyChannel', () => {
+    describe('happy case', () => {
+
+    })
+
+    describe('failing requires', () => {
+
+    })
+
+    describe('edge cases', () => {
+
+    })
   })
 })
 
