@@ -616,7 +616,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(newUpdate, viewer, 10).should.be.rejectedWith('global txCount must be higher than the current global txCount')
        })
 
-      it.only('fails when txCount[1] < channel.txCount[1]', async () => {
+      it('fails when txCount[1] < channel.txCount[1]', async () => {
         //First submit a deposit at default txCountChain
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
@@ -639,28 +639,32 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(newUpdate, viewer, 10).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
       })
 
-      it('fails when wei is not conserved', async () => {
+      it.only('fails when wei is not conserved', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.balanceWeiHub = 20
-        update.sigUser = await getSig(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.balanceWeiUser = 20
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('wei must be conserved')
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('wei must be conserved')
       })
 
-      it('fails when token are not conserved', async () => {
+      it.only('fails when token are not conserved', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.balanceTokenHub = 20
-        update.sigUser = await getSig(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.balanceTokenUser = 20
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('tokens must be conserved')
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('tokens must be conserved')
       })
 
       it('fails when insufficient reserve wei', async () => {
