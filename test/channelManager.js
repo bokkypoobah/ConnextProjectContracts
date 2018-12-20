@@ -543,7 +543,7 @@ contract("ChannelManager", accounts => {
     })
 
     describe("failing requires", () => {
-      it.only('fails when sent wei does not match pending wei deposit', async () => {
+      it('fails when sent wei does not match pending wei deposit', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -559,16 +559,16 @@ contract("ChannelManager", accounts => {
 
       //TODO it('hubAuthorizedUpdate - fails when channel status is not "Open"')
 
-      it('fails when timeout expired', async () => {
+      it.only('fails when timeout expired', async () => {
+        const timeout = 1
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10,
-          timeout: (new Date().getTime()) / 1000 // timeout is now
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.sigUser = await getSig(update, viewer)
-
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('the timeout must be zero or not have passed')
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('the timeout must be zero or not have passed.')
       })
 
       it('fails when txCount[0] <= channel.txCount[0]', async () => {

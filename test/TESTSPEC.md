@@ -103,7 +103,7 @@ Expect
     - with "msg.value is not equal to pending user deposit"
 2. TESTME Fails if channel status is not `Open`.
     - with "channel must be open"
-3. TESTME Fails if timeout is not 0 and `timeout <= now`
+3. Fails if timeout is not 0 and `timeout <= now`
     - with "the timeout must be zero or not have passed"
 4. TESTME Fails if `txCount[0] <= channel.txCount[0]`
     - with "global txCount must be higher than the current global txCount"
