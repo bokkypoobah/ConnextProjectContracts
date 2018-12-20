@@ -99,7 +99,7 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ### userAuthorizedUpdate
 Expect
-1. TESTME Fails if `msg.value` is not equal to `pendingWeiUpdates[2]`
+1. Fails if `msg.value` is not equal to `pendingWeiUpdates[2]`
     - with "msg.value is not equal to pending user deposit"
 2. TESTME Fails if channel status is not `Open`.
     - with "channel must be open"
