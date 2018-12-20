@@ -67,6 +67,11 @@ async function moveForwardSecs(secs) {
   return true
 }
 
+async function getBlockTimeByTxHash(txHash) {
+  const blockNumber = (await web3.eth.getTransaction(txHash)).blockNumber
+  return +(await web3.eth.getBlock(blockNumber)).timestamp
+}
+
 function getEventParams(tx, event) {
   if (tx.logs.length > 0) {
     for (let idx = 0; idx < tx.logs.length; idx++) {
@@ -192,7 +197,7 @@ async function startExitWithUpdate(state, account, wei = 0) {
   state = normalize(state)
   return await cm.startExitWithUpdate(
     [state.user, state.recipient],
-    state.weiAmount,
+    state.weiBalances,
     state.tokenBalances,
     state.pendingWeiUpdates,
     state.pendingTokenUpdates,
@@ -256,7 +261,7 @@ async function submitHubAuthorized(userAccount, hubAccount, wei = 0, ...override
 }
 
 let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
-  initHubReserveToken
+  initHubReserveToken, challengePeriod
 
 // TODO - because we're testing the JS, we should also be testing
 // that we properly handle BigNumbers, and use them in our tests
@@ -267,42 +272,60 @@ contract("ChannelManager", accounts => {
 
   // TODO add verification of reserves by including initital reserve values
 
+  // asserts that the onchain-channel state matches provided offchain state
+
+  const verifyChannelBalances = async (account, state) => {
+    const stateBN = convertChannelState("bn", state)
+    const channelBalances = await cm.getChannelBalances(account.address)
+
+    // Wei balances are equal
+    channelBalances.weiHub.should.be.bignumber.equal(stateBN.balanceWeiHub);
+    channelBalances.weiUser.should.be.bignumber.equal(stateBN.balanceWeiUser);
+    channelBalances.weiTotal.should.be.bignumber.equal(
+      stateBN.balanceWeiHub.add(stateBN.balanceWeiUser)
+    )
+
+    // Token balances are equal
+    channelBalances.tokenHub.should.be.bignumber.equal(stateBN.balanceTokenHub);
+    channelBalances.tokenUser.should.be.bignumber.equal(stateBN.balanceTokenUser);
+    channelBalances.tokenTotal.should.be.bignumber.equal(
+      stateBN.balanceTokenHub.add(stateBN.balanceTokenUser)
+    )
+  }
+
+  // status, exitInitiator, and channelClosingTime must be explicitely
+  // set on the state object or are assumed to be 0, emptyAddress, and 0
+  const verifyChannelDetails = async (account, state) => {
+    const stateBN = convertChannelState("bn", state)
+    const channelDetails = await cm.getChannelDetails(account.address)
+    // Tx counts are equal to the original update (state increments)
+    channelDetails.txCountGlobal.should.be.bignumber.equal(stateBN.txCountGlobal)
+    channelDetails.txCountChain.should.be.bignumber.equal(stateBN.txCountChain)
+
+    // Thread states are equal
+    assert.equal(channelDetails.threadRoot, state.threadRoot)
+    assert.equal(channelDetails.threadCount, state.threadCount)
+
+    // check exit params
+    channelDetails.channelClosingTime.should.be.bignumber.equal(
+      state.channelClosingTime ? state.channelClosingTime : 0
+    )
+    assert.equal(channelDetails.exitInitiator, state.exitInitiator || emptyAddress)
+    assert.equal(channelDetails.status, state.status ? state.status : 0)
+  }
+
   const verifyAuthorizedUpdate = async (account, update, tx, isHub) => {
     const confirmed = await validator.generateConfirmPending(update, {
       transactionHash: tx.tx
     })
 
-    const channelBalances = await cm.getChannelBalances(account.address)
-    const channelDetails = await cm.getChannelDetails(account.address)
+    // verify channel balances match the confirmed offchain values
+    await verifyChannelBalances(account, confirmed)
+
+    // use update for verifying channel details b/c txCounts will match
+    await verifyChannelDetails(account, update)
 
     const updateBN = convertChannelState("bn", update)
-    const confirmedBN = convertChannelState("bn", confirmed)
-
-    // Wei balances are equal
-    channelBalances.weiHub.should.be.bignumber.equal(confirmedBN.balanceWeiHub);
-    channelBalances.weiUser.should.be.bignumber.equal(confirmedBN.balanceWeiUser);
-    channelBalances.weiTotal.should.be.bignumber.equal(
-      confirmedBN.balanceWeiHub.add(confirmedBN.balanceWeiUser)
-    );
-
-    // Token balances are equal
-    channelBalances.tokenHub.should.be.bignumber.equal(confirmedBN.balanceTokenHub);
-    channelBalances.tokenUser.should.be.bignumber.equal(confirmedBN.balanceTokenUser);
-    channelBalances.tokenTotal.should.be.bignumber.equal(
-      confirmedBN.balanceTokenHub.add(confirmedBN.balanceTokenUser)
-    );
-
-    // Tx counts are equal to the original update (confirmed increments)
-    assert.equal(+channelDetails.txCountGlobal, update.txCountGlobal)
-    assert.equal(+channelDetails.txCountChain, update.txCountChain)
-
-    // Thread states are equal
-    assert.equal(channelDetails.threadRoot, update.threadRoot)
-    assert.equal(channelDetails.threadCount, update.threadCount)
-
-    // exitInitiator should not be set, and status should not change
-    assert.equal(channelDetails.exitInitiator, emptyAddress)
-    assert.equal(channelDetails.status, 0)
 
     const event = getEventParams(tx, 'DidUpdateChannel')
     assert.equal(event.user, account.address)
@@ -333,6 +356,32 @@ contract("ChannelManager", accounts => {
     await verifyAuthorizedUpdate(account, update, tx, true)
   }
 
+  const verifyStartExit = async (account, update, tx, isHub) => {
+    const blockTime = await getBlockTimeByTxHash(tx.tx)
+
+    // explicitely set so they can be checked by verifyChannelDetails
+    update.exitInitiator = isHub ? hub.address : account.address
+    update.status = 1
+    update.channelClosingTime = blockTime + challengePeriod
+
+    await verifyChannelBalances(account, update)
+    await verifyChannelDetails(account, update)
+
+    const updateBN = convertChannelState("bn", update)
+
+    const event = getEventParams(tx, 'DidStartExitChannel')
+    assert.equal(event.user, account.address)
+    assert.equal(event.senderIdx, isHub ? 0 : 1)
+    event.weiBalances[0].should.be.bignumber.equal(updateBN.balanceWeiHub)
+    event.weiBalances[1].should.be.bignumber.equal(updateBN.balanceWeiUser)
+    event.tokenBalances[0].should.be.bignumber.equal(updateBN.balanceTokenHub)
+    event.tokenBalances[1].should.be.bignumber.equal(updateBN.balanceTokenUser)
+    assert.equal(+event.txCount[0], update.txCountGlobal)
+    assert.equal(+event.txCount[1], update.txCountChain)
+    assert.equal(event.threadRoot, emptyRootHash)
+    assert.equal(event.threadCount, 0)
+  }
+
   before('deploy contracts', async () => {
     cm = await CM.deployed()
     token = await HST.deployed()
@@ -351,6 +400,8 @@ contract("ChannelManager", accounts => {
     }
 
     validator = new Validator(web3, hub.address)
+
+    challengePeriod = +(await cm.challengePeriod.call()).toString()
   })
 
   beforeEach(async () => {
@@ -373,8 +424,8 @@ contract("ChannelManager", accounts => {
     it("verify init parameters", async () => {
       const hubAddress = await cm.hub.call()
       assert.equal(hubAddress, hub.address)
-      const challengePeriod = await cm.challengePeriod.call()
-      assert.equal(data.channelManager.challengePeriod, challengePeriod)
+      // challengePeriod set in *before* block
+      assert.equal(+data.channelManager.challengePeriod, challengePeriod)
       const approvedToken = await cm.approvedToken.call()
       assert.equal(token.address, approvedToken)
     })
@@ -1121,15 +1172,10 @@ contract("ChannelManager", accounts => {
         transactionHash: tx.tx
       })
     })
-
   })
 
   describe('startExit', () => {
     beforeEach(async () => {
-      const userTokenBalance = 1000
-      await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
-      await token.approve(cm.address, userTokenBalance, { from: viewer.address })
-
       const deposit = getDepositArgs("empty", {
         ...state,
         depositWeiUser: 10,
@@ -1145,14 +1191,19 @@ contract("ChannelManager", accounts => {
       })
 
       initHubReserveWei = await cm.getHubReserveWei()
+
+      // initial state is the confirmed values with txCountGlobal rolled back
+      state = {
+        ...confirmed,
+        txCountGlobal: confirmed.txCountGlobal - 1
+      }
     })
 
-    describe('happy case', () => {
+    describe.only('happy case', () => {
       it('start exit as user', async () => {
-        await startExit(state, viewer, 0)
+        const tx = await startExit(state, viewer, 0)
 
-        const channelDetails = await cm.getChannelDetails(viewer.address)
-        console.log(channelDetails)
+        await verifyStartExit(viewer, state, tx, false)
 
         const totalChannelWei = await cm.totalChannelWei.call()
         assert.equal(+totalChannelWei, 10)
@@ -1162,9 +1213,16 @@ contract("ChannelManager", accounts => {
       })
 
       it('start exit as hub', async () => {
+        const tx = await startExit(state, hub, 0)
 
+        await verifyStartExit(viewer, state, tx, true)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 10)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei)
       })
-
     })
 
     describe('failing requires', () => {
@@ -1197,8 +1255,82 @@ contract("ChannelManager", accounts => {
   })
 
   describe('startExitWithUpdate', () => {
-    describe('happy case', () => {
+    beforeEach(async () => {
+      await token.transfer(cm.address, 1000, { from: hub.address })
+      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
 
+      initHubReserveWei = await cm.getHubReserveWei()
+      initHubReserveToken = await cm.getHubReserveTokens()
+
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 10,
+        depositTokenUser: 11,
+        depositWeiHub: 12,
+        depositTokenHub: 13,
+        timeout: minutesFromNow(5)
+      })
+      const update = validator.generateProposePendingDeposit(state, deposit)
+
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+      confirmed = await validator.generateConfirmPending(update, {
+        transactionHash: tx.tx
+      })
+
+      // initial state is the confirmed values with txCountGlobal rolled back
+      state = {
+        ...confirmed,
+        txCountGlobal: confirmed.txCountGlobal - 1
+      }
+    })
+
+    describe.only('happy case', () => {
+      it('startExitWithUpdate as user', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        const tx = await startExitWithUpdate(update, viewer, 0)
+
+        await verifyStartExit(viewer, update, tx, false)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 22)
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 22)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 24)
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 24)
+      })
+
+      it('startExitWithUpdate as hub', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        // send as hub
+        const tx = await startExitWithUpdate(update, hub, 0)
+
+        await verifyStartExit(viewer, update, tx, true)
+      })
     })
 
     describe('failing requires', () => {
