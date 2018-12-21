@@ -115,8 +115,6 @@ export default class StateUpdateController extends AbstractController {
   }
 
   private async handleSyncItem(item: SyncResult) {
-    console.log('Applying update from hub:', item)
-
     this._queuedActions = []
 
     if (item.type === 'thread') {
@@ -137,10 +135,11 @@ export default class StateUpdateController extends AbstractController {
     }
 
     const update = item.update
+    console.log(`Applying update from hub: ${update.reason} txCount=${update.txCount}:`, update)
+
     const prevState: ChannelState = getChannel(this.store)
     console.log('prevState:', prevState)
-    console.log('update:', update)
-    if (update.txCount <= prevState.txCountGlobal) {
+    if (update.txCount && update.txCount <= prevState.txCountGlobal) {
       console.warn(
         `StateUpdateController received update with old ` +
         `${update.txCount} < ${prevState.txCountGlobal}. Skipping.`
@@ -148,12 +147,15 @@ export default class StateUpdateController extends AbstractController {
       return
     }
 
-    const nextState = await this.connext.validator.generateChannelStateFromRequest(prevState, update)
-
-    if (update.reason == 'ConfirmPending') {
-      // TODO: REB-29: Does this belong here? Or in state generator?
-      nextState.recipient = nextState.user
+    if (update.txCount && update.txCount != prevState.txCountGlobal + 1) {
+      throw new Error(
+        `Update txCount ${update.txCount} != ${prevState.txCountGlobal} + 1 ` +
+        `(ie, the update is trying to be applied on top of a state that's ` +
+        `later than our most recent state)`
+      )
     }
+
+    const nextState = await this.connext.validator.generateChannelStateFromRequest(prevState, update)
 
     // any sigs included on the updates should be valid
     this.assertValidSigs(update, nextState)

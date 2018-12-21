@@ -13,7 +13,7 @@ const { Utils } = require("../client/dist/Utils.js");
 const { StateGenerator } = require("../client/dist/StateGenerator.js")
 const { Validator } = require("../client/dist/validator.js")
 const { convertChannelState, convertDeposit, convertExchange, convertWithdrawal } = require("../client/dist/types")
-const { mkAddress, getChannelState, getThreadState, getDepositArgs, getWithdrawalArgs, getExchangeArgs, getPaymentArgs, assertThreadStateEqual, assertChannelStateEqual } = require("../client/dist/testing")
+const { mkAddress, getChannelState, getThreadState, getDepositArgs, getWithdrawalArgs, getExchangeArgs, getPaymentArgs, getPendingArgs, assertThreadStateEqual, assertChannelStateEqual } = require("../client/dist/testing")
 const { toBN } = require('../client/dist/helpers/bn')
 const clientUtils = new Utils()
 const sg = new StateGenerator()
@@ -515,7 +515,7 @@ contract("ChannelManager", accounts => {
         assert.equal(reserveToken, 0)
 
         const hubFinalToken = await token.balanceOf(hub.address)
-        assert.equal(hubFinalToken, hubInitialToken)
+        hubFinalToken.should.be.bignumber.equal(hubInitialToken)
       })
 
       it("fails with insufficient ETH", async () => {
@@ -834,7 +834,7 @@ contract("ChannelManager", accounts => {
       initHubReserveToken = await cm.getHubReserveTokens()
     })
 
-    describe("happy case", () => {
+    describe.only("happy case", () => {
       it('hub deposit wei', async () => {
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -1000,6 +1000,8 @@ contract("ChannelManager", accounts => {
         const confirmed = await validator.generateConfirmPending(update, {
           transactionHash: tx.tx
         })
+        confirmed.sigUser = getSig(confirmed, viewer)
+        confirmed.sigHub = getSig(confirmed, hub)
 
         // apply payment and send to chain
         const payment = getDepositArgs("empty", {
@@ -1034,6 +1036,8 @@ contract("ChannelManager", accounts => {
         const confirmed = await validator.generateConfirmPending(update, {
           transactionHash: tx.tx
         })
+        confirmed.sigUser = getSig(confirmed, viewer)
+        confirmed.sigHub = getSig(confirmed, hub)
 
         // apply payment but don't send to chain
         const payment = getDepositArgs("empty", {
@@ -1043,6 +1047,8 @@ contract("ChannelManager", accounts => {
           recipient: 'hub'
         })
         const update2 = validator.generateChannelPayment(confirmed, payment)
+        update2.sigUser = getSig(update2, viewer)
+        update2.sigHub = getSig(update2, hub)
 
         // withdraw all wei
         const withdrawal = getWithdrawalArgs("empty", {
@@ -1079,6 +1085,8 @@ contract("ChannelManager", accounts => {
         const confirmed = await validator.generateConfirmPending(update, {
           transactionHash: tx.tx
         })
+        confirmed.sigUser = getSig(confirmed, viewer)
+        confirmed.sigHub = getSig(confirmed, hub)
 
         // apply payment but don't send to chain
         const payment = getDepositArgs("empty", {
@@ -1088,6 +1096,8 @@ contract("ChannelManager", accounts => {
           recipient: 'hub'
         })
         const update2 = validator.generateChannelPayment(confirmed, payment)
+        update2.sigUser = getSig(update2, viewer)
+        update2.sigHub = getSig(update2, hub)
 
         // withdraw all token
         const withdrawal = getWithdrawalArgs("empty", {
@@ -1561,6 +1571,8 @@ contract("ChannelManager", accounts => {
       confirmed = await validator.generateConfirmPending(update, {
         transactionHash: tx.tx
       })
+      confirmed.sigUser = getSig(confirmed, viewer)
+      confirmed.sigHub = getSig(confirmed, hub)
 
       // initial state is the confirmed values with txCountGlobal rolled back
       state = {
@@ -1661,6 +1673,8 @@ contract("ChannelManager", accounts => {
       confirmed = await validator.generateConfirmPending(update, {
         transactionHash: tx.tx
       })
+      confirmed.sigUser = getSig(confirmed, viewer)
+      confirmed.sigHub = getSig(confirmed, hub)
 
       // initial state is the confirmed values with txCountGlobal rolled back
       state = {
@@ -1694,6 +1708,10 @@ contract("ChannelManager", accounts => {
       await verifyEmptyChannel(viewer, update, tx, true)
     })
 
+    // start exit w/ chain state, challenge with pending update
+    // 1. generate pending (#1)
+    // 2. startExit (#0)
+    // 3. emptyChannelWithChallenge (#1)
     it('challenge with pending deposits after viewer startExit', async () => {
       await startExit(state, viewer, 0)
       viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
@@ -1732,17 +1750,63 @@ contract("ChannelManager", accounts => {
 
       const withdrawal = getWithdrawalArgs("empty", {
         ...state,
-        additionalWeiHubToUser: 5,
-        tokenToSell: 1,
-        exchangeRate: "2"
+        targetWeiUser: 0,
+        targetWeiHub: 1,
+        targetTokenUser: 3,
+        targetTokenHub: 4
       })
       const update = sg.proposePendingWithdrawal(
         convertChannelState("bn", state),
         convertWithdrawal("bn", withdrawal)
       )
 
-      // TODO fix to use validator once timeouts are optional on deposits
-      // const update = validator.generateProposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      update.sigHub = await getSig(update, hub)
+
+      const tx = await emptyChannelWithChallenge(update, hub, 0)
+
+      // user/hub withdrawn balances should reflect initial balance
+      update.userWeiTransfer = 10 // initial user balance (10)
+      update.userTokenTransfer = 11 // initial user balance (11)
+      update.initHubReserveWei = initHubReserveWei
+      update.initHubReserveToken = initHubReserveToken
+
+      await verifyEmptyChannel(viewer, update, tx, true)
+    })
+
+    it.skip('challenge with withdrawals > deposits after viewer startExit', async () => {
+      await startExit(state, viewer, 0)
+      viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+      viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+      // TODO use pendingUpdate
+
+      /*
+      const withdrawal = getWithdrawalArgs("empty", {
+        ...state,
+        targetWeiUser: 0,
+        targetWeiHub: 1,
+        targetTokenUser: 3,
+        targetTokenHub: 4
+      })
+
+      const update = sg.proposePendingWithdrawal(
+        convertChannelState("bn", state),
+        convertWithdrawal("bn", withdrawal)
+      )
+
+      update.pendingDepositWeiUser = 1
+      update.pendingDepositWeiHub = 2
+      update.pendingDepositTokenUser = 3
+      update.pendingDepositTokenHub = 4
+      */
+
+      const update = sg.proposePendingWithdrawal(
+        convertChannelState("bn", state),
+        convertWithdrawal("bn", withdrawal)
+      )
+      console.log(update)
+
       update.sigUser = await getSig(update, viewer)
       update.sigHub = await getSig(update, hub)
 
@@ -1755,6 +1819,63 @@ contract("ChannelManager", accounts => {
 
       await verifyEmptyChannel(viewer, update, tx, true)
     })
+
+    // start exit w/ commited pending update, challenge with later update
+    // 1. generate pending (#1)
+    // 2. channel update (#2 - does not resolve pending)
+    // 3. commit #1 via authorized update
+    // 4. startExit (uses #1)
+    // 5. emptyChannelWithChallenge (#2)
+    it.skip('challenge with a valid update on a committed pending state', async () => {
+      viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+      viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+      // 1. generate, and sign a pending deposit update
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 5,
+        depositTokenUser: 54,
+        depositWeiHub: 49,
+        depositTokenHub: 2,
+        timeout: 0
+      })
+
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+
+      console.log(update)
+
+      // 2. generate a valid payment update on the pending deposit update
+      const payment = getPaymentArgs("empty", {
+        ...update,
+        amountWei: 3,
+        amountToken: 0,
+        recipient: 'hub'
+      })
+
+      console.log(payment)
+
+      const update2 = validator.generateChannelPayment(update, payment)
+      update2.sigUser = await getSig(update2, viewer)
+      update2.sigHub = await getSig(update2, hub)
+
+      // 3. commit the pending deposit update
+      await hubAuthorizedUpdate(update, hub, 0)
+
+      // 4. start exit with the pending deposit update
+      await startExit(update, viewer, 0)
+
+      // 5. challenge with the payment update
+      const tx = await emptyChannelWithChallenge(update2, hub, 0)
+
+      // user/hub withdrawn balances should account for committed pending ops
+      update.userWeiTransfer = viewer.initWeiBalance + 2 // deposit 5 spend 3
+      update.userTokenTransfer = viewer.initTokenBalance + 54 // deposit 54
+      update.initHubReserveWei = initHubReserveWei - 2
+      update.initHubReserveToken = initHubReserveToken - 54
+
+      await verifyEmptyChannel(viewer, update, tx, true)
+    })
   })
 
   // TODO might be worth doing these in their own section
@@ -1763,10 +1884,6 @@ contract("ChannelManager", accounts => {
   // start exit w/ pending state, challenge with resolved state
   // start exit w/ pending state, resolve, challenge with new pending
   //
-  // start exit w/ chain state, challenge with pending update
-  // 1. generate pending (#1)
-  // 2. startExit (#0)
-  // 3. emptyChannelWithChallenge (#1)
   //
   // start exit w/ pending update, challenge with later update
   // 1. generate pending (#1)
@@ -1774,12 +1891,6 @@ contract("ChannelManager", accounts => {
   // 3. startExitWithUpdate (#1)
   // 3. emptyChannelWithChallenge (#2)
   //
-  // start exit w/ commited pending update, challenge with later update
-  // 1. generate pending (#1)
-  // 2. channel update (#2 - does not resolve pending)
-  // 3. commit #1 via authorized update
-  // 4. startExit (uses #1)
-  // 5. emptyChannelWithChallenge (#2)
   //
   // ???
   // 1. generate pending (#1)
