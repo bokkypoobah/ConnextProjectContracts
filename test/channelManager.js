@@ -695,7 +695,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient reserve tokens for deposits')
       })
 
-      it.only('fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
+      it('fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -709,7 +709,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient wei')
       })
 
-      it.only('fails when current total channel token + both deposits is less than final balances + withdrawals', async () => {
+      it('fails when current total channel token + both deposits is less than final balances + withdrawals', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -724,27 +724,30 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails if sender is hub', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.user = hub.address
-        update.sigUser = await getSig(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be hub')
+        await userAuthorizedUpdate(update, hub, 10).should.be.rejectedWith('user can not be hub')
       })
 
-      it('fails when sender is contract', async () => {
+      //TODO how do we test this?
+      it.skip('fails when sender is contract', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.user = cm.address
-        update.sigUser = await getSig(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user can not be channel manager')
+        await userAuthorizedUpdate(update, cm.address, 0).should.be.rejectedWith('user can not be channel manager')
       })
 
       it('fails when hub signature is incorrect (long test)', async () => {
