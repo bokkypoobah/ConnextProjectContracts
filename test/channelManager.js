@@ -751,17 +751,19 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when hub signature is incorrect (long test)', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        const sigArrayUser = await generateIncorrectSigs(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        const sigArrayHub = await generateIncorrectSigs(update, hub)
         //iterate over incorrect sigs and try each one to make sure it fails
-        for(i=0; i<sigArrayUser.length; i++){
-          update.sigUser = sigArrayUser[i]
-          console.log("Now testing signature: " + update.sigUser)
-          await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
+        for(i=0; i<sigArrayHub.length; i++){
+          update.sigHub = sigArrayHub[i]
+          console.log("Now testing signature: " + update.sigHub)
+          await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('hub signature invalid')
         }
       })
       
