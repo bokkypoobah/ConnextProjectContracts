@@ -818,7 +818,7 @@ contract("ChannelManager", accounts => {
         //iterate over incorrect sigs and try each one to make sure it fails
         for(i=0; i<sigArrayHub.length; i++){
           update.sigHub = sigArrayHub[i]
-          console.log("Now testing signature: " + update.sigHub)
+          // console.log("Now testing signature: " + update.sigHub)
           await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('hub signature invalid')
         }
       })
@@ -1331,7 +1331,7 @@ contract("ChannelManager", accounts => {
         //iterate over incorrect sigs and try each one to make sure it fails
         for(i=0; i<sigArrayUser.length; i++){
           update.sigUser = sigArrayUser[i]
-          console.log("Now testing signature: " + update.sigUser)
+          // console.log("Now testing signature: " + update.sigUser)
           await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('user signature invalid')
         }
       })
@@ -1527,7 +1527,7 @@ contract("ChannelManager", accounts => {
         //first, start exit on the channel
         const tx = await startExit(state, viewer, 0)
         await verifyStartExit(viewer, state, tx, false)
-        
+
         //then, try exiting again
         await startExit(state, viewer, 0).should.be.rejectedWith('channel must be open')
       })
@@ -1658,7 +1658,7 @@ contract("ChannelManager", accounts => {
         const tx = await startExitWithUpdate(update, viewer, 0)
 
         await verifyStartExit(viewer, update, tx, false)
-        
+
         //then, try exiting again
         await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('channel must be open')
       })
@@ -1735,7 +1735,7 @@ contract("ChannelManager", accounts => {
         //iterate over incorrect sigs and try each one to make sure it fails
         for(i=0; i<sigArrayHub.length; i++){
           update.sigHub = sigArrayHub[i]
-          console.log("Now testing signature: " + update.sigHub)
+          // console.log("Now testing signature: " + update.sigHub)
           await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('hub signature invalid')
         }
       })
@@ -1753,7 +1753,7 @@ contract("ChannelManager", accounts => {
         //iterate over incorrect sigs and try each one to make sure it fails
         for(i=0; i<sigArrayUser.length; i++){
           update.sigUser = sigArrayUser[i]
-          console.log("Now testing signature: " + update.sigUser)
+          // console.log("Now testing signature: " + update.sigUser)
           await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('user signature invalid')
         }
       })
@@ -2021,8 +2021,7 @@ contract("ChannelManager", accounts => {
     // 3. commit #1 via authorized update
     // 4. startExit (uses #1)
     // 5. emptyChannelWithChallenge (#2)
-    it.skip('challenge with a valid update on a committed pending state', async () => {
-      viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+    it('challenge with a valid update on a committed pending state', async () => {
       viewer.initTokenBalance = await token.balanceOf(viewer.address)
 
       // 1. generate, and sign a pending deposit update
@@ -2038,8 +2037,6 @@ contract("ChannelManager", accounts => {
       const update = sg.proposePendingDeposit(state, deposit)
       update.sigUser = await getSig(update, viewer)
 
-      console.log(update)
-
       // 2. generate a valid payment update on the pending deposit update
       const payment = getPaymentArgs("empty", {
         ...update,
@@ -2047,8 +2044,6 @@ contract("ChannelManager", accounts => {
         amountToken: 0,
         recipient: 'hub'
       })
-
-      console.log(payment)
 
       const update2 = validator.generateChannelPayment(update, payment)
       update2.sigUser = await getSig(update2, viewer)
@@ -2060,16 +2055,73 @@ contract("ChannelManager", accounts => {
       // 4. start exit with the pending deposit update
       await startExit(update, viewer, 0)
 
+      // set the user initial wei balance here b/c they pay startExit gas
+      viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+
       // 5. challenge with the payment update
       const tx = await emptyChannelWithChallenge(update2, hub, 0)
 
       // user/hub withdrawn balances should account for committed pending ops
-      update.userWeiTransfer = viewer.initWeiBalance + 2 // deposit 5 spend 3
-      update.userTokenTransfer = viewer.initTokenBalance + 54 // deposit 54
-      update.initHubReserveWei = initHubReserveWei - 2
-      update.initHubReserveToken = initHubReserveToken - 54
+      update2.userWeiTransfer = 12 // deposit 10, deposit 5, spend 3
+      update2.userTokenTransfer = 65 // deposit 11, deposit 54
+      update2.initHubReserveWei = initHubReserveWei
+      update2.initHubReserveToken = initHubReserveToken
 
-      await verifyEmptyChannel(viewer, update, tx, true)
+      await verifyEmptyChannel(viewer, update2, tx, true)
+    })
+
+    // startExitWithUpdate pending, challenge with later update
+    // 1. generate pending (#1)
+    // 2. channel update (#2 - does not resolve pending)
+    // 3. commit #1 via startExitWithUpdate
+    // 4. emptyChannelWithChallenge (#2)
+    it.only('challenge with a valid update on a startExitWithUpdate pending state', async () => {
+      viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+      // 1. generate, and sign a pending deposit update
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 5,
+        depositTokenUser: 54,
+        depositWeiHub: 49,
+        depositTokenHub: 2,
+        timeout: 0
+      })
+
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      update.sigHub = await getSig(update, hub)
+
+      // 2. generate a valid payment update on the pending deposit update
+      const payment = getPaymentArgs("empty", {
+        ...update,
+        amountWei: 3,
+        amountToken: 0,
+        recipient: 'hub'
+      })
+
+      const update2 = validator.generateChannelPayment(update, payment)
+      update2.sigUser = await getSig(update2, viewer)
+      update2.sigHub = await getSig(update2, hub)
+
+      // 3. start exit with the pending deposit update
+      console.log(state)
+      console.log(update)
+      await startExitWithUpdate(update, viewer, 0)
+
+      // set the user initial wei balance here b/c they pay startExit gas
+      viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+
+      // 4. challenge with the payment update
+      const tx = await emptyChannelWithChallenge(update2, hub, 0)
+
+      // user/hub withdrawn balances should account for committed pending ops
+      update2.userWeiTransfer = 12 // deposit 10, deposit 5, spend 3
+      update2.userTokenTransfer = 65 // deposit 11, deposit 54
+      update2.initHubReserveWei = initHubReserveWei
+      update2.initHubReserveToken = initHubReserveToken
+
+      await verifyEmptyChannel(viewer, update2, tx, true)
     })
 
     describe('failing requires', () => {
