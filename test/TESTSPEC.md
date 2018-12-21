@@ -255,7 +255,7 @@ TODO Test possible states for revertPendingUpdates
     - with "challenger can not be exit initiator"
 4. Fails if `msg.sender` is not either the hub or the submitted user
     - with "challenger must be either user or hub"
-5. TESTME Fails if timeout is nonzero
+5. Fails if timeout is nonzero
     - with "can't start exit with time-sensistive states"
 6. TESTME Fails if `msg.sender` is hub
     - with "user can not be hub"

@@ -2109,7 +2109,7 @@ contract("ChannelManager", accounts => {
         await emptyChannelWithChallenge(update, viewer, 0).should.be.rejectedWith('challenger can not be exit initiator.')
       })
 
-      it.only('Fails when the sender is not either the hub or submitted user', async () => {
+      it('Fails when the sender is not either the hub or submitted user', async () => {
         await startExit(state, viewer, 0)
         const payment = getDepositArgs("empty", {
           ...state,
@@ -2125,7 +2125,19 @@ contract("ChannelManager", accounts => {
       })
 
       it('Fails when timeout is nonzero', async () => {
-
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.timeout = 1
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+  
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith("can't start exit with time-sensitive states.")
       })
 
       it('Fails when user is hub', async () => {
