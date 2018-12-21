@@ -236,6 +236,7 @@ async function emptyChannelWithChallenge(state, account, wei = 0) {
     state.timeout,
     state.sigHub,
     state.sigUser,
+    { from: account.address, value: wei }
   )
 }
 
@@ -2074,7 +2075,7 @@ contract("ChannelManager", accounts => {
     describe('failing requires', () => {
       //these will all be tested with the startExit base case
 
-      it.only('Fails when channel is not in dispute status', async () => {
+      it('Fails when channel is not in dispute status', async () => {
         //call emptyChannelWithChallenge without first calling startExit
         const payment = getDepositArgs("empty", {
           ...state,
@@ -2090,15 +2091,26 @@ contract("ChannelManager", accounts => {
       })
 
       it('Fails when the closing time has passed', async () => {
-
+        //TODO come back to this
       })
 
       it('Fails when the sender initiated the exit', async () => {
-
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+  
+        await emptyChannelWithChallenge(update, viewer, 0).should.be.rejectedWith('challenger can not be exit initiator.')
       })
 
       it('Fails when the sender is not either the hub or submitted user', async () => {
-
+        
       })
 
       it('Fails when timeout is nonzero', async () => {
