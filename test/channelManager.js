@@ -1806,6 +1806,36 @@ contract("ChannelManager", accounts => {
 
         await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount.')
       })
+
+      it('fails when wei is not conserved', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.balanceWeiUser = 20
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+
+        await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('wei must be conserved')
+      })
+
+      it('fails when token are not conserved', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.balanceTokenUser = 20
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+
+        await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('tokens must be conserved')
+      })
     })
 
     describe('edge cases', () => {

@@ -232,9 +232,9 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
     - with "global txCount must be higher than the current global txCount"
 18. Fails if `txCount[1]` is strictly less than current `txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
-19. TESTME Fails if offchain wei balances exceed onchain wei
+19. Fails if offchain wei balances exceed onchain wei
     - with "wei must be conserved"
-20. TESTME Fails if offchain token balances exceed onchain tokens
+20. Fails if offchain token balances exceed onchain tokens
     - with "tokens must be conserved"
 21. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
 22. TESTME same as above for tokens
