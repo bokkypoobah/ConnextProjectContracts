@@ -249,7 +249,7 @@ TODO Test possible states for revertPendingUpdates
 ### emptyChannelWithChallenge
 1. Fails if channel is not in dispute status
     - with "channel must be in dispute"
-2. TESTME Fails if the closing time has passed
+2. Fails if the closing time has passed
     - with "channel closing time must not have passed"
 3. Fails if `msg.sender` initiated the exit
     - with "challenger can not be exit initiator"

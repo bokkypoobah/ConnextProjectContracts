@@ -2143,7 +2143,20 @@ contract("ChannelManager", accounts => {
       })
 
       it('Fails when the closing time has passed', async () => {
-        //TODO come back to this
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+        //move forward until closing time has passed
+        moveForwardSecs(challengePeriod + 1)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('channel closing time must not have passed')
       })
 
       it('Fails when the sender initiated the exit', async () => {
