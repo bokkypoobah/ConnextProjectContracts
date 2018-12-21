@@ -2438,7 +2438,7 @@ contract("ChannelManager", accounts => {
     })
 
     describe('happy case', () => {
-      it.only('empty after viewer startExit', async () => {
+      it('empty after viewer startExit', async () => {
         await startExit(state, viewer, 0)
         viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
         viewer.initTokenBalance = await token.balanceOf(viewer.address)
@@ -2455,9 +2455,15 @@ contract("ChannelManager", accounts => {
     describe.only('failing requires', () => {
       //tests done using empty after viewer startExit base
       it('Fails when user is hub', async () => {
+        await startExit(state, viewer, 0)
+        state.user = hub.address
+        await emptyChannel(state, hub, 0).should.be.rejectedWith('user can not be hub.')
       })
 
       it('Fails when user is channel manager', async () => {
+        await startExit(state, viewer, 0)
+        state.user = cm.address
+        await emptyChannel(state, hub, 0).should.be.rejectedWith('user can not be channel manager.')
       })
 
       it('Fails when channel is not in dispute status', async () => {
