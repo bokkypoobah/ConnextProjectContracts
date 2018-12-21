@@ -14,7 +14,7 @@ import { ConnextInternal, IChannelManager } from '../Connext'
 import { mkAddress, getChannelState, getChannelStateUpdate, getDepositArgs, assert } from '.'
 import { ChannelRow, ThreadRow, PurchasePaymentHubResponse, WithdrawalArgsBN, PaymentBN, Payment, UnsignedChannelState, ChannelUpdateReason, ArgsTypes, PurchasePayment } from '../types'
 import { ExchangeRates } from '../state/ConnextState/ExchangeRates'
-import { ConnextState, PersistentState, RuntimeState } from '../state/store';
+import { ConnextState, PersistentState, RuntimeState, CHANNEL_ZERO_STATE } from '../state/store';
 import { StateGenerator } from '../StateGenerator';
 import { createStore } from 'redux'
 import { reducers } from "../state/reducers";
@@ -164,7 +164,7 @@ export class MockHub implements IHubAPIClient {
           args: getPaymentArgs('full', { amountToken: p.amount.amountToken, amountWei: p.amount.amountWei }),
           sigHub: mkHash('0x51512'),
           sigUser: (p.update as UpdateRequest).sigUser || '',
-          txCount: (p.update as UpdateRequest).sigUser ? (p.update as UpdateRequest).txCount : (p.update as UpdateRequest).txCount + 1,
+          txCount: (p.update as UpdateRequest).sigUser ? (p.update as UpdateRequest).txCount! : (p.update as UpdateRequest).txCount! + 1,
         } as UpdateRequest
       } as SyncResult
     })
@@ -192,14 +192,19 @@ export class MockHub implements IHubAPIClient {
   }
 
   async requestWithdrawal(params: WithdrawalParameters, txCountGlobal: number): Promise<SyncResult[]> {
+    const { withdrawalWeiUser, withdrawalTokenUser, ...res } = params
     return [{
       type: 'channel',
       update: {
         reason: 'ProposePendingWithdrawal',
-        args: getWithdrawalArgs('full', {
-          ...params,
-          additionalWeiHubToUser: toBN(0),
-          additionalTokenHubToUser: toBN(0),
+        args: getWithdrawalArgs('empty', {
+          ...res,
+          targetWeiHub: '0',
+          targetWeiUser: '0',
+          targetTokenHub: '0',
+          targetTokenUser: '0',
+          additionalWeiHubToUser: '0',
+          additionalTokenHubToUser: '0',
           timeout: +(Date.now() / 1000 + 60).toFixed(),
         }),
         txCount: txCountGlobal + 1,
@@ -244,12 +249,15 @@ export class MockHub implements IHubAPIClient {
     }]
   }
 
-  async updateHub(updates: UpdateRequest[], lastThreadUpdateId: number): Promise<SyncResult[]> {
+  async updateHub(updates: UpdateRequest[], lastThreadUpdateId: number): Promise<{ error: null, updates: SyncResult[] }> {
     this.receivedUpdateRequests = [
       ...this.receivedUpdateRequests,
       ...updates,
     ]
-    return []
+    return {
+      error: null,
+      updates: [],
+    }
   }
 
   assertReceivedUpdate(expected: PartialUpdateRequest) {
@@ -297,16 +305,6 @@ export class MockStore {
     this._initialState = state
   }
 
-  public setWallet = (user: Address) => {
-    this._initialState = {
-      ...this._initialState,
-      runtime: {
-        ...this._initialState.runtime,
-        wallet: user,
-      }
-    }
-  }
-
   public setExchangeRate = (rates: ExchangeRates) => {
     this._initialState = {
       ...this._initialState,
@@ -333,7 +331,7 @@ export class MockStore {
       ...this._initialState,
       persistent: {
         ...this._initialState.persistent,
-        channel: getChannelState("empty", overrides)
+        channel: getChannelState("empty", { txCountChain: 0, txCountGlobal: 0 }, overrides)
       }
     }
   }
@@ -387,7 +385,7 @@ export class MockStore {
     }
   }
 
-  public setSyncControllerState = (updatesToSync: UpdateRequest[]) => {
+  public setSyncControllerState = (updatesToSync: UpdateRequest[], latestValidState: ChannelState) => {
     this._initialState = {
       ...this._initialState,
       persistent: {

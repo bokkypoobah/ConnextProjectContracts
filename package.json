@@ -46,6 +46,6 @@
     "npm": ">=6"
   },
   "devDependencies": {
-    "chai-bignumber": "^3.0.0"
+    "chai-bignumber": "ameensol/chai-bignumber#master"
   }
 }

@@ -83,7 +83,10 @@ export interface IHubAPIClient {
   requestWithdrawal(withdrawal: WithdrawalParameters, txCountGlobal: number): Promise<SyncResult[]>
   requestExchange(weiToSell: string, tokensToSell: string, txCountGlobal: number): Promise<SyncResult[]>
   requestCollateral(txCountGlobal: number): Promise<SyncResult[]>
-  updateHub(updates: UpdateRequest[], lastThreadUpdateId: number): Promise<SyncResult[]>
+  updateHub(updates: UpdateRequest[], lastThreadUpdateId: number): Promise<{
+    error: string | null
+    updates: SyncResult[]
+  }>
 }
 
 class HubAPIClient implements IHubAPIClient {
@@ -249,7 +252,7 @@ class HubAPIClient implements IHubAPIClient {
   updateHub = async (
     updates: UpdateRequest[],
     lastThreadUpdateId: number,
-  ): Promise<SyncResult[]> => {
+  ): Promise<{ error: string | null, updates: SyncResult[] }> => {
     // post to hub
     const response = await this.networking.post(
       `channel/${this.user}/update`,
@@ -458,8 +461,8 @@ export abstract class ConnextClient extends EventEmitter {
     await this.internal.exchangeController.exchange(toSell, currency)
   }
 
-  async buy(purchase: PurchaseRequest): Promise<void> {
-    await this.internal.buyController.buy(purchase)
+  async buy(purchase: PurchaseRequest): Promise<{ purchaseId: string }> {
+    return await this.internal.buyController.buy(purchase)
   }
 
   async withdraw(withdrawal: WithdrawalParameters): Promise<void> {
@@ -574,6 +577,17 @@ export class ConnextInternal extends ConnextClient {
   }
 
   async signChannelState(state: UnsignedChannelState): Promise<ChannelState> {
+    if (
+      state.user != this.opts.user ||
+      state.contractAddress != this.opts.contractAddress
+    ) {
+      throw new Error(
+        `Refusing to sign state update which changes user or contract: ` +
+        `expected user: ${this.opts.user}, expected contract: ${this.opts.contract} ` +
+        `actual state: ${JSON.stringify(state)}`
+      )
+    }
+
     const hash = this.utils.createChannelStateHash(state)
 
     const { user, hubAddress } = this.opts
@@ -583,7 +597,7 @@ export class ConnextInternal extends ConnextClient {
         : (this.opts.web3.eth.personal.sign as any)(hash, user)
     )
 
-    console.log('Signing channel state: ' + sig, state)
+    console.log(`Signing channel state ${state.txCountGlobal}: ${sig}`, state)
     return addSigToChannelState(state, sig, user !== hubAddress)
   }
 
