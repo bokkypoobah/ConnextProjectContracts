@@ -2070,6 +2070,79 @@ contract("ChannelManager", accounts => {
 
       await verifyEmptyChannel(viewer, update, tx, true)
     })
+
+    describe('failing requires', () => {
+      //these will all be tested with the startExit base case
+
+      it.only('Fails when channel is not in dispute status', async () => {
+        //call emptyChannelWithChallenge without first calling startExit
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+  
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('channel must be in dispute')
+      })
+
+      it('Fails when the closing time has passed', async () => {
+
+      })
+
+      it('Fails when the sender initiated the exit', async () => {
+
+      })
+
+      it('Fails when the sender is not either the hub or submitted user', async () => {
+
+      })
+
+      it('Fails when timeout is nonzero', async () => {
+
+      })
+
+      it('Fails when user is hub', async () => {
+
+      })
+
+      it('Fails when user is channel manager', async () => {
+
+      })
+
+      it('Fails when hub signature is incorect', async () => {
+
+      })
+
+      it('Fails when user signature is incorrect', async () => {
+
+      })
+
+      it('Fails when global txCount is <= current global txCount', async () => {
+        //Part 1 (txCount[0] = channel.txCount[0])
+      })
+
+      it('Fails when global txCount is <= current global txCount', async () => {
+        //Part 2 (txCount[0] < channel.txCount[0])
+      })
+
+      it('Fails when onchain txCount is <= current onchain txCount', async () => {
+        
+      })
+
+      it('Fails when wei is not conserved', async () => {
+        
+      })
+
+      it('Fails when tokens are not conserved', async () => {
+        
+      })
+
+      //TODO Reverts if token transfer fails - how can this happen?
+    })
   })
 
   // TODO might be worth doing these in their own section
