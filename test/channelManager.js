@@ -1503,11 +1503,13 @@ contract("ChannelManager", accounts => {
 
     describe('failing requires', () => {
       it('fails when user is hub', async () => {
-
+        state.user = hub.address
+        const tx = await startExit(state, viewer, 0).should.be.rejectedWith('user can not be hub')
       })
 
-      it('fails when user is contract', async () => {
-
+      it.only('fails when user is contract', async () => {
+        state.user = cm.address
+        const tx = await startExit(state, viewer, 0).should.be.rejectedWith('user can not be channel manager')
       })
 
       it('fails when channel is open', async () => {
@@ -1630,7 +1632,7 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  describe.only('emptyChannelWithChallenge', () => {
+  describe('emptyChannelWithChallenge', () => {
     beforeEach(async () => {
       await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })

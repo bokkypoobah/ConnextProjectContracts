@@ -182,9 +182,9 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ### startExit
 
-1. TESTME Fails if user is hub 
+1. Fails if user is hub 
     - with "user can not be hub"
-2. TESTME Fails if user is the channel manager
+2. Fails if user is the channel manager
     - with "user can not be channel manager"
 3. TESTME Fails if channel is not open
     - with "channel must be open"
