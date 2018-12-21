@@ -99,55 +99,53 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ### userAuthorizedUpdate
 Expect
-1. TESTME Fails if `msg.value` is not equal to `pendingWeiUpdates[2]`
+1. Fails if `msg.value` is not equal to `pendingWeiUpdates[2]`
     - with "msg.value is not equal to pending user deposit"
 2. TESTME Fails if channel status is not `Open`.
     - with "channel must be open"
-3. TESTME Fails if timeout is not 0 and `timeout <= now`
+3. Fails if timeout is not 0 and `timeout <= now`
     - with "the timeout must be zero or not have passed"
-4. TESTME Fails if `txCount[0] <= channel.txCount[0]`
+4. Fails if `txCount[0] <= channel.txCount[0]`
     - with "global txCount must be higher than the current global txCount"
-5. TESTME Fails if `txCount[1] < channel.txCount[1]`
+5. Fails if `txCount[1] < channel.txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
-6. TESTME Fails if wei balances are greater than `channel.weiBalances[2]`
+6. Fails if wei balances are greater than `channel.weiBalances[2]`
     - with "wei must be conserved"
-7. TESTME Fails if token balances are greater than `channel.tokenBalances[2]`
+7. Fails if token balances are greater than `channel.tokenBalances[2]`
     - with "tokens must be conserved"
-10. TESTME Fails if sender is not hub and hub wei deposit is greater than hub reserve wei
+10. Fails if sender is not hub and hub wei deposit is greater than hub reserve wei
     - with "insufficient reserve wei for deposits"
-11. TESTME Fails if sender is not hub and hub token deposit is greater than hub reserve token
+11. Fails if sender is not hub and hub token deposit is greater than hub reserve token
     - with "insufficient reserve tokens for deposits"
-12. TESTME Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
+12. Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
     - with "insufficient wei"
-13. TESTME Fails if the current total channel tokens + both deposits is less than the final balances + both withdrawals
+13. Fails if the current total channel tokens + both deposits is less than the final balances + both withdrawals
     - with "insufficient token"
-14. TESTME Fails if `msg.sender` is hub
+14. Fails if `msg.sender` is hub
     - with "user can not be hub"
-15. TESTME Fails if `msg.sender` is channel manager
-    - with "user can not be channel manager"
-16. TESTME Fails if address in signature is not the address of channel manager
-    - fails with either "hub signature invalid" or "user signature invalid"
-17. TESTME Fails if user or recipient is not correct in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-18. TESTME Fails if weiBalances are incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-19. TESTME Fails if tokenBalances are incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-20. TESTME Fails if pendingWeiUpdates are incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-21. TESTME Fails if pendingTokenUpdates is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-22. TESTME Fails if txCount is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-23. TESTME Fails if threadRoot is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-    - note: this should be empty for this release! TODO verify that this is validated on client/hub 
-24. TESTME Fails if threadCount is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-    - note: this should be zero for this release! TODO verify that this is validated on client/hub
-25. TESTME Fails if timeout is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-26. TESTME Fails if hub is not the signer of sigHub
+15. Fails if `msg.sender` is channel manager
+    - This one is impossible to test without changing contract itself
+16. Fails if address in signature is not the address of channel manager
+    - fails with either "hub signature invalid"
+17. Fails if user or recipient is not correct in state
+    - fails with either "hub signature invalid"
+18. Fails if weiBalances are incorrect in state
+    - fails with either "hub signature invalid"
+19. Fails if tokenBalances are incorrect in state
+    - fails with either "hub signature invalid"
+20. Fails if pendingWeiUpdates are incorrect in state
+    - fails with either "hub signature invalid"
+21. Fails if pendingTokenUpdates is incorrect in state
+    - fails with either "hub signature invalid"
+22. Fails if txCount is incorrect in state
+    - fails with either "hub signature invalid" 
+23. Fails if threadRoot is incorrect in state
+    - fails with either "hub signature invalid"
+24. Fails if threadCount is incorrect in state
+    - fails with either "hub signature invalid"
+25. Fails if timeout is incorrect in state
+    - fails with either "hub signature invalid"
+26. Fails if hub is not the signer of sigHub
     - with "hub signature invalid"
 27. TESTME Fails if user token transferFrom fails (token transfer not approved)
     - with "user token deposit failed"
