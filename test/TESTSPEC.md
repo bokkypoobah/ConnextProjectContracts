@@ -247,47 +247,47 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 TODO Test possible states for revertPendingUpdates
 
 ### emptyChannelWithChallenge
-1. TESTME Fails if channel is not in dispute status
+1. Fails if channel is not in dispute status
     - with "channel must be in dispute"
 2. TESTME Fails if the closing time has passed
     - with "channel closing time must not have passed"
-3. TESTME Fails if `msg.sender` initiated the exit
+3. Fails if `msg.sender` initiated the exit
     - with "challenger can not be exit initiator"
-4. TESTME Fails if `msg.sender` is not either the hub or the submitted user
+4. Fails if `msg.sender` is not either the hub or the submitted user
     - with "challenger must be either user or hub"
-5. TESTME Fails if timeout is nonzero
+5. Fails if timeout is nonzero
     - with "can't start exit with time-sensistive states"
-6. TESTME Fails if `msg.sender` is hub
+6. Fails if `msg.sender` is hub
     - with "user can not be hub"
-7. TESTME Fails if `msg.sender` is channel manager
+7. Fails if `msg.sender` is channel manager
     - with "user can not be channel manager"
-8. TESTME Fails if address in signature is not the address of channel manager
+8. Fails if address in signature is not the address of channel manager
     - fails with either "hub signature invalid" or "user signature invalid"
-9. TESTME Fails if user or recipient is not correct in state
+9. Fails if user or recipient is not correct in state
     - fails with either "hub signature invalid" or "user signature invalid"
-10. TESTME Fails if weiBalances are incorrect in state
+10. Fails if weiBalances are incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-11. TESTME Fails if tokenBalances are incorrect in state
+11. Fails if tokenBalances are incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-12. TESTME Fails if pendingWeiUpdates are incorrect in state
+12. Fails if pendingWeiUpdates are incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-13. TESTME Fails if pendingTokenUpdates is incorrect in state
+13. Fails if pendingTokenUpdates is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-14. TESTME Fails if txCount is incorrect in state
+14. Fails if txCount is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-15. TESTME Fails if threadRoot is incorrect in state
+15. Fails if threadRoot is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-16. TESTME Fails if threadCount is incorrect in state
+16. Fails if threadCount is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-17. TESTME Fails if timeout is incorrect in state
+17. Fails if timeout is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-18. TESTME Fails if hub is not the signer of sigHub
+18. Fails if hub is not the signer of sigHub
     - with "hub signature invalid"
-19. TESTME Fails if user is not the signer of sigUser
+19. Fails if user is not the signer of sigUser
     - with "user signature invalid"
-20. TESTME Fails if `txCount[0] <= channel.txCount[0]`
+20. Fails if `txCount[0] <= channel.txCount[0]`
     - with "global txCount must be higher than the current global txCount"
-21. TESTME Fails if `txCount[1] < channel.txCount[1]`
+21. Fails if `txCount[1] < channel.txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
 22. TESTME Fails if wei balances are greater than `channel.weiBalances[2]`
     - with "wei must be conserved"
