@@ -2467,11 +2467,12 @@ contract("ChannelManager", accounts => {
       })
 
       it('Fails when channel is not in dispute status', async () => {
-
+        await emptyChannel(state, hub, 0).should.be.rejectedWith('channel must be in dispute.')
       })
 
       it('Fails when channel closing time has not passed and sender is the initiator', async () => {
-
+        await startExit(state, viewer, 0)
+        await emptyChannel(state, viewer, 0).should.be.rejectedWith('channel closing time must have passed or msg.sender must be non-exit-initiating party.')
       })
 
       //TODO how do we test this?
