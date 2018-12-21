@@ -316,7 +316,7 @@ TODO Test possible states for revertPendingUpdates
     - with "channel must be in dispute"
 4. Fails if channel closing time has not passed and `msg.sender` is the exit initiator
     - with "channel closing time must have passed or msg.sender must be non-exit-initiating party"
-5. TESTME Fails if token transfer fails
+5. Fails if token transfer fails
     - with "user token withdrawal transfer failed"
 6. TESTME verify that correct amounts are transferred during success case and that all state is updated correctly
 

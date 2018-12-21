@@ -2154,7 +2154,7 @@ contract("ChannelManager", accounts => {
         update.sigUser = await getSig(update, viewer)
         update.sigHub = await getSig(update, hub)
         //move forward until closing time has passed
-        moveForwardSecs(challengePeriod + 1)
+        await moveForwardSecs(challengePeriod + 1)
 
         await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('channel closing time must not have passed')
       })
@@ -2475,10 +2475,14 @@ contract("ChannelManager", accounts => {
         await emptyChannel(state, viewer, 0).should.be.rejectedWith('channel closing time must have passed or msg.sender must be non-exit-initiating party.')
       })
 
-      //TODO how do we test this?
-      it('Fails if token transfer fails', async () => {
-
-      })
+      //This is actually impossible to test:
+      // 1. This req only fails if there is insuffient token to send to user
+      // 2. The amount of token to be sent to user is determined by previously recorded onchain state
+      // 3. The only valid previously recorded onchain states are ones where there is enough reserve tokens
+      //    to allow for this withdrawal to occur.
+      //
+      // Theoretically, the only way this fails is if we get hacked or if the token is not actually erc20
+      it('Fails if token transfer fails', async () => {})
     })
 
     describe('edge cases', () => {
