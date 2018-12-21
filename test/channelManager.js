@@ -667,7 +667,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('tokens must be conserved')
       })
 
-      it.only('fails when insufficient reserve wei', async () => {
+      it('fails when insufficient reserve wei', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -681,7 +681,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient reserve wei for deposits')
       })
 
-      it.only('fails when insufficient reserve token', async () => {
+      it('fails when insufficient reserve token', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -695,28 +695,32 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient reserve tokens for deposits')
       })
 
-      it('fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
+      it.only('fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 10,
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
+        const update = validator.generateProposePendingDeposit(state, deposit)
         update.pendingWithdrawalWeiUser = 20 //also tested here with hub withdrawal
-        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient wei')
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient wei')
       })
 
-      it('fails when current total channel token + both deposits is less than final balances + withdrawals', async () => {
+      it.only('fails when current total channel token + both deposits is less than final balances + withdrawals', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositTokenHub: 10,
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
+        const update = validator.generateProposePendingDeposit(state, deposit)
         update.pendingWithdrawalTokenUser = 20 //also tested here with hub withdrawal
-        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient token')
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient token')
       })
 
       it('fails if sender is hub', async () => {

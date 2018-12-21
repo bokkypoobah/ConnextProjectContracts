@@ -109,17 +109,17 @@ Expect
     - with "global txCount must be higher than the current global txCount"
 5. Fails if `txCount[1] < channel.txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
-6. TESTME Fails if wei balances are greater than `channel.weiBalances[2]`
+6. Fails if wei balances are greater than `channel.weiBalances[2]`
     - with "wei must be conserved"
-7. TESTME Fails if token balances are greater than `channel.tokenBalances[2]`
+7. Fails if token balances are greater than `channel.tokenBalances[2]`
     - with "tokens must be conserved"
-10. TESTME Fails if sender is not hub and hub wei deposit is greater than hub reserve wei
+10. Fails if sender is not hub and hub wei deposit is greater than hub reserve wei
     - with "insufficient reserve wei for deposits"
-11. TESTME Fails if sender is not hub and hub token deposit is greater than hub reserve token
+11. Fails if sender is not hub and hub token deposit is greater than hub reserve token
     - with "insufficient reserve tokens for deposits"
-12. TESTME Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
+12. Fails if the current total channel wei + both deposits is less than the final balances + both withdrawals
     - with "insufficient wei"
-13. TESTME Fails if the current total channel tokens + both deposits is less than the final balances + both withdrawals
+13. Fails if the current total channel tokens + both deposits is less than the final balances + both withdrawals
     - with "insufficient token"
 14. TESTME Fails if `msg.sender` is hub
     - with "user can not be hub"
