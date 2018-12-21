@@ -2075,7 +2075,7 @@ contract("ChannelManager", accounts => {
     // 2. channel update (#2 - does not resolve pending)
     // 3. commit #1 via startExitWithUpdate
     // 4. emptyChannelWithChallenge (#2)
-    it.only('challenge with a valid update on a startExitWithUpdate pending state', async () => {
+    it('challenge with a valid update on a startExitWithUpdate pending state', async () => {
       viewer.initTokenBalance = await token.balanceOf(viewer.address)
 
       // 1. generate, and sign a pending deposit update
