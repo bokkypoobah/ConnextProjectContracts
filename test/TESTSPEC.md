@@ -206,29 +206,27 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
     - with "user can not be channel manager"
 6. Fails if address in signature is not the address of channel manager
     - fails with either "hub signature invalid" or "user signature invalid"
-7. TESTME Fails if user or recipient is not correct in state
+7. Fails if user or recipient is not correct in state
     - fails with either "hub signature invalid" or "user signature invalid"
-8. TESTME Fails if weiBalances are incorrect in state
+8. Fails if weiBalances are incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-9. TESTME Fails if tokenBalances are incorrect in state
+9. Fails if tokenBalances are incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-10. TESTME Fails if pendingWeiUpdates are incorrect in state
+10. Fails if pendingWeiUpdates are incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-11. TESTME Fails if pendingTokenUpdates is incorrect in state
+11. Fails if pendingTokenUpdates is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-12. TESTME Fails if txCount is incorrect in state
+12. Fails if txCount is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-13. TESTME Fails if threadRoot is incorrect in state
+13. Fails if threadRoot is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-    - note: this should be empty for this release! TODO verify that this is validated on client/hub 
-14. TESTME Fails if threadCount is incorrect in state
+14. Fails if threadCount is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-    - note: this should be zero for this release! TODO verify that this is validated on client/hub
-15. TESTME Fails if timeout is incorrect in state
+15. Fails if timeout is incorrect in state
     - fails with either "hub signature invalid" or "user signature invalid"
-16. TESTME Fails if hub is not the signer of sigHub
+16. Fails if hub is not the signer of sigHub
     - with "hub signature invalid"
-17. TESTME Fails if user is not the signer of sigUser
+17. Fails if user is not the signer of sigUser
     - with "user signature invalid"
 17. TESTME Fails if `txCount[0]` is not higher than the current `txCount[0]`
     - with "global txCount must be higher than the current global txCount"

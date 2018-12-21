@@ -1720,6 +1720,42 @@ contract("ChannelManager", accounts => {
 
         await startExitWithUpdate(update, hub, 0).should.be.rejectedWith('user can not be channel manager')
       })
+
+      it('fails when hub signature is incorrect (long test)', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        const sigArrayHub = await generateIncorrectSigs(update, hub)
+        update.sigUser = await getSig(update, viewer)
+        //iterate over incorrect sigs and try each one to make sure it fails
+        for(i=0; i<sigArrayHub.length; i++){
+          update.sigHub = sigArrayHub[i]
+          console.log("Now testing signature: " + update.sigHub)
+          await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('hub signature invalid')
+        }
+      })
+
+      it('fails when user signature is incorrect (long test)', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        const sigArrayUser = await generateIncorrectSigs(update, viewer)
+        update.sigHub = await getSig(update, hub)
+        //iterate over incorrect sigs and try each one to make sure it fails
+        for(i=0; i<sigArrayUser.length; i++){
+          update.sigUser = sigArrayUser[i]
+          console.log("Now testing signature: " + update.sigUser)
+          await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('user signature invalid')
+        }
+      })
     })
 
     describe('edge cases', () => {
