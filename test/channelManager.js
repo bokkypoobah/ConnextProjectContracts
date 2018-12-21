@@ -12,7 +12,9 @@ const HST = artifacts.require("./HumanStandardToken.sol")
 const { Utils } = require("../client/dist/Utils.js");
 const { StateGenerator } = require("../client/dist/StateGenerator.js")
 const { Validator } = require("../client/dist/validator.js")
-const { convertChannelState, convertDeposit, convertExchange, convertWithdrawal } = require("../client/dist/types")
+const { convertChannelState, convertDeposit, convertExchange, convertWithdrawal,
+  convertProposePending
+} = require("../client/dist/types")
 const { mkAddress, getChannelState, getThreadState, getDepositArgs, getWithdrawalArgs, getExchangeArgs, getPaymentArgs, getPendingArgs, assertThreadStateEqual, assertChannelStateEqual } = require("../client/dist/testing")
 const { toBN } = require('../client/dist/helpers/bn')
 const clientUtils = new Utils()
@@ -822,9 +824,7 @@ contract("ChannelManager", accounts => {
           await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('hub signature invalid')
         }
       })
-
     })
-
   })
 
   describe("hubAuthorizedUpdate", () => {
@@ -1936,6 +1936,7 @@ contract("ChannelManager", accounts => {
       update.userTokenTransfer = 11 // initial user balance (11)
       update.initHubReserveWei = initHubReserveWei
       update.initHubReserveToken = initHubReserveToken
+      update.txCountChain = update.txCountChain - 1 // revert onchain operation
 
       await verifyEmptyChannel(viewer, update, tx, true)
     })
@@ -1967,42 +1968,31 @@ contract("ChannelManager", accounts => {
       update.userTokenTransfer = 11 // initial user balance (11)
       update.initHubReserveWei = initHubReserveWei
       update.initHubReserveToken = initHubReserveToken
+      update.txCountChain = update.txCountChain - 1 // revert onchain operation
 
       await verifyEmptyChannel(viewer, update, tx, true)
     })
 
-    it.skip('challenge with withdrawals > deposits after viewer startExit', async () => {
+    it('challenge with withdrawals > deposits after viewer startExit', async () => {
       await startExit(state, viewer, 0)
       viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
       viewer.initTokenBalance = await token.balanceOf(viewer.address)
 
-      // TODO use pendingUpdate
-
-      /*
-      const withdrawal = getWithdrawalArgs("empty", {
+      const pending = getPendingArgs("empty", {
         ...state,
-        targetWeiUser: 0,
-        targetWeiHub: 1,
-        targetTokenUser: 3,
-        targetTokenHub: 4
+        depositWeiUser: 12,
+        depositWeiHub: 5,
+        depositTokenUser: 19,
+        depositTokenHub: 7,
+        withdrawalWeiUser: 14,
+        withdrawalWeiHub: 9,
+        withdrawalTokenUser: 21,
+        withdrawalTokenHub: 17
       })
 
-      const update = sg.proposePendingWithdrawal(
-        convertChannelState("bn", state),
-        convertWithdrawal("bn", withdrawal)
+      const update = sg.proposePending(state,
+        convertProposePending("bn", pending)
       )
-
-      update.pendingDepositWeiUser = 1
-      update.pendingDepositWeiHub = 2
-      update.pendingDepositTokenUser = 3
-      update.pendingDepositTokenHub = 4
-      */
-
-      const update = sg.proposePendingWithdrawal(
-        convertChannelState("bn", state),
-        convertWithdrawal("bn", withdrawal)
-      )
-      console.log(update)
 
       update.sigUser = await getSig(update, viewer)
       update.sigHub = await getSig(update, hub)
@@ -2013,6 +2003,7 @@ contract("ChannelManager", accounts => {
       update.userTokenTransfer = 11 // initial user balance (11)
       update.initHubReserveWei = initHubReserveWei
       update.initHubReserveToken = initHubReserveToken
+      update.txCountChain = update.txCountChain - 1 // revert onchain operation
 
       await verifyEmptyChannel(viewer, update, tx, true)
     })
@@ -2120,6 +2111,7 @@ contract("ChannelManager", accounts => {
       update2.userTokenTransfer = 11 // initial user balance (11)
       update2.initHubReserveWei = initHubReserveWei
       update2.initHubReserveToken = initHubReserveToken
+      update2.txCountChain = update.txCountChain - 1 // revert onchain operation
 
       await verifyEmptyChannel(viewer, update2, tx, true)
     })
@@ -2138,7 +2130,7 @@ contract("ChannelManager", accounts => {
         const update = validator.generateChannelPayment(state, payment)
         update.sigUser = await getSig(update, viewer)
         update.sigHub = await getSig(update, hub)
-  
+
         await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('channel must be in dispute')
       })
 
@@ -2170,7 +2162,7 @@ contract("ChannelManager", accounts => {
         const update = validator.generateChannelPayment(state, payment)
         update.sigUser = await getSig(update, viewer)
         update.sigHub = await getSig(update, hub)
-  
+
         await emptyChannelWithChallenge(update, viewer, 0).should.be.rejectedWith('challenger can not be exit initiator.')
       })
 
@@ -2185,7 +2177,7 @@ contract("ChannelManager", accounts => {
         const update = validator.generateChannelPayment(state, payment)
         update.sigUser = await getSig(update, viewer)
         update.sigHub = await getSig(update, hub)
-  
+
         await emptyChannelWithChallenge(update, performer, 0).should.be.rejectedWith('challenger must be either user or hub.')
       })
 
@@ -2201,7 +2193,7 @@ contract("ChannelManager", accounts => {
         update.timeout = 1
         update.sigUser = await getSig(update, viewer)
         update.sigHub = await getSig(update, hub)
-  
+
         await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith("can't start exit with time-sensitive states.")
       })
 
@@ -2225,7 +2217,7 @@ contract("ChannelManager", accounts => {
         //iterate over incorrect sigs and try each one to make sure it fails
         for(i=0; i<sigArrayHub.length; i++){
           update.sigHub = sigArrayHub[i]
-          console.log("Now testing signature: " + update.sigHub)
+          // console.log("Now testing signature: " + update.sigHub)
           await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('hub signature invalid')
         }
       })
@@ -2244,7 +2236,7 @@ contract("ChannelManager", accounts => {
         //iterate over incorrect sigs and try each one to make sure it fails
         for(i=0; i<sigArrayUser.length; i++){
           update.sigUser = sigArrayUser[i]
-          console.log("Now testing signature: " + update.sigUser)
+          // console.log("Now testing signature: " + update.sigUser)
           await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('user signature invalid')
         }
       })
