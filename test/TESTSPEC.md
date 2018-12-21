@@ -196,9 +196,9 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 1. Fails if channel status is not open
     - with "channel must be open"
-2. TESTME Fails if `msg.sender` is not the hub or the submitted user
+2. Fails if `msg.sender` is not the hub or the submitted user
     - with "exit initiator must be user or hub"
-3. TESTME Fails if `timeout` is nonzero
+3. Fails if `timeout` is nonzero
     - with "can't start exit with time-sensitive states"
 4. TESTME Fails if `msg.sender` is hub
     - with "user can not be hub"
