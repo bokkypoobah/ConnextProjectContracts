@@ -124,30 +124,28 @@ Expect
 14. Fails if `msg.sender` is hub
     - with "user can not be hub"
 15. Fails if `msg.sender` is channel manager
-    - with "user can not be channel manager"
-16. TESTME Fails if address in signature is not the address of channel manager
-    - fails with either "hub signature invalid" or "user signature invalid"
-17. TESTME Fails if user or recipient is not correct in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-18. TESTME Fails if weiBalances are incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-19. TESTME Fails if tokenBalances are incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-20. TESTME Fails if pendingWeiUpdates are incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-21. TESTME Fails if pendingTokenUpdates is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-22. TESTME Fails if txCount is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-23. TESTME Fails if threadRoot is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-    - note: this should be empty for this release! TODO verify that this is validated on client/hub 
-24. TESTME Fails if threadCount is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-    - note: this should be zero for this release! TODO verify that this is validated on client/hub
-25. TESTME Fails if timeout is incorrect in state
-    - fails with either "hub signature invalid" or "user signature invalid"
-26. TESTME Fails if hub is not the signer of sigHub
+    - This one is impossible to test without changing contract itself
+16. Fails if address in signature is not the address of channel manager
+    - fails with either "hub signature invalid"
+17. Fails if user or recipient is not correct in state
+    - fails with either "hub signature invalid"
+18. Fails if weiBalances are incorrect in state
+    - fails with either "hub signature invalid"
+19. Fails if tokenBalances are incorrect in state
+    - fails with either "hub signature invalid"
+20. Fails if pendingWeiUpdates are incorrect in state
+    - fails with either "hub signature invalid"
+21. Fails if pendingTokenUpdates is incorrect in state
+    - fails with either "hub signature invalid"
+22. Fails if txCount is incorrect in state
+    - fails with either "hub signature invalid" 
+23. Fails if threadRoot is incorrect in state
+    - fails with either "hub signature invalid"
+24. Fails if threadCount is incorrect in state
+    - fails with either "hub signature invalid"
+25. Fails if timeout is incorrect in state
+    - fails with either "hub signature invalid"
+26. Fails if hub is not the signer of sigHub
     - with "hub signature invalid"
 27. TESTME Fails if user token transferFrom fails (token transfer not approved)
     - with "user token deposit failed"
