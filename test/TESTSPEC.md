@@ -200,11 +200,11 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
     - with "exit initiator must be user or hub"
 3. Fails if `timeout` is nonzero
     - with "can't start exit with time-sensitive states"
-4. TESTME Fails if `msg.sender` is hub
+4. Fails if `msg.sender` is hub
     - with "user can not be hub"
-5. TESTME Fails if `msg.sender` is channel manager
+5. Fails if `msg.sender` is channel manager
     - with "user can not be channel manager"
-6. TESTME Fails if address in signature is not the address of channel manager
+6. Fails if address in signature is not the address of channel manager
     - fails with either "hub signature invalid" or "user signature invalid"
 7. TESTME Fails if user or recipient is not correct in state
     - fails with either "hub signature invalid" or "user signature invalid"

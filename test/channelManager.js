@@ -1676,7 +1676,7 @@ contract("ChannelManager", accounts => {
         await startExitWithUpdate(update, performer, 0).should.be.rejectedWith('exit initiator must be user or hub')
       })
 
-      it.only('fails when timeout is nonzero', async () => {
+      it('fails when timeout is nonzero', async () => {
         const payment = getDepositArgs("empty", {
           ...state,
           amountWei: 3,
@@ -1689,6 +1689,36 @@ contract("ChannelManager", accounts => {
         update.timeout = 1
 
         await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith("can't start exit with time-sensitive states")
+      })
+
+      it('fails when user is hub', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+        update.user = hub.address
+
+        await startExitWithUpdate(update, hub, 0).should.be.rejectedWith('user can not be hub')
+      })
+
+      it('fails when user is hub', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+        update.user = cm.address
+
+        await startExitWithUpdate(update, hub, 0).should.be.rejectedWith('user can not be channel manager')
       })
     })
 
