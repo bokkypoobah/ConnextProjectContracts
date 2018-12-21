@@ -824,9 +824,7 @@ contract("ChannelManager", accounts => {
           await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('hub signature invalid')
         }
       })
-
     })
-
   })
 
   describe("hubAuthorizedUpdate", () => {
@@ -1846,7 +1844,7 @@ contract("ChannelManager", accounts => {
     })
   })
 
-  describe.only('emptyChannelWithChallenge', () => {
+  describe('emptyChannelWithChallenge', () => {
     beforeEach(async () => {
       await token.transfer(cm.address, 1000, { from: hub.address })
       await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
@@ -2116,6 +2114,220 @@ contract("ChannelManager", accounts => {
       update2.txCountChain = update.txCountChain - 1 // revert onchain operation
 
       await verifyEmptyChannel(viewer, update2, tx, true)
+    })
+
+    describe('failing requires', () => {
+      //these will all be tested with the startExit base case
+
+      it('Fails when channel is not in dispute status', async () => {
+        //call emptyChannelWithChallenge without first calling startExit
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('channel must be in dispute')
+      })
+
+      it('Fails when the closing time has passed', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+        //move forward until closing time has passed
+        await moveForwardSecs(challengePeriod + 1)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('channel closing time must not have passed')
+      })
+
+      it('Fails when the sender initiated the exit', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, viewer, 0).should.be.rejectedWith('challenger can not be exit initiator.')
+      })
+
+      it('Fails when the sender is not either the hub or submitted user', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, performer, 0).should.be.rejectedWith('challenger must be either user or hub.')
+      })
+
+      it('Fails when timeout is nonzero', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.timeout = 1
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith("can't start exit with time-sensitive states.")
+      })
+
+      //Not possible to test. If we set user = hub, this will fail the "channel must be in dispute" test
+      it('Fails when user is hub', async () => {})
+
+      //Not possible to test. If we set user = cm, this will fail the "channel must be in dispute" test
+      it('Fails when user is channel manager', async () => {})
+
+      it('fails when hub signature is incorrect (long test)', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        const sigArrayHub = await generateIncorrectSigs(update, hub)
+        update.sigUser = await getSig(update, viewer)
+        //iterate over incorrect sigs and try each one to make sure it fails
+        for(i=0; i<sigArrayHub.length; i++){
+          update.sigHub = sigArrayHub[i]
+          // console.log("Now testing signature: " + update.sigHub)
+          await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('hub signature invalid')
+        }
+      })
+
+      it('fails when user signature is incorrect (long test)', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        const sigArrayUser = await generateIncorrectSigs(update, viewer)
+        update.sigHub = await getSig(update, hub)
+        //iterate over incorrect sigs and try each one to make sure it fails
+        for(i=0; i<sigArrayUser.length; i++){
+          update.sigUser = sigArrayUser[i]
+          // console.log("Now testing signature: " + update.sigUser)
+          await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('user signature invalid')
+        }
+      })
+
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
+        // Part 1 - txCount[0] = channel.txCount[0]
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        //curent txCountGlobal onchain is 1 because we've done one deposit before dispute
+        update.txCountGlobal = 1
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount.')
+      })
+
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
+        // Part 2 - txCount[0] < channel.txCount[0]
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        //curent txCountGlobal onchain is 1 because we've done one deposit before dispute
+        update.txCountGlobal = 0
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount.')
+      })
+
+      it('fails when txCount[1] < channel.txCount[1]', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        //curent txCountChain onchain is 1 because we've done one deposit before dispute
+        update.txCountChain = 0
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount.')
+      })
+
+      it('fails when wei is not conserved', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.balanceWeiUser = 20
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('wei must be conserved')
+      })
+
+      it('fails when token are not conserved', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.balanceTokenUser = 20
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+
+        await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('tokens must be conserved')
+      })
+
+      //TODO Reverts if token transfer fails - how can this happen?
+
     })
   })
 
