@@ -203,8 +203,8 @@ export default class SyncController extends AbstractController {
 
     let shouldRemoveUpdates = true
 
-    if (res.error || err) {
-      const error = res.error || err
+    if (err || res.error) {
+      const error = err || res.error
       this.flushErrorCount += 1
       const triesRemaining = Math.max(0, 4 - this.flushErrorCount)
       console.error(
