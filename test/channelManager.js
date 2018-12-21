@@ -1642,7 +1642,7 @@ contract("ChannelManager", accounts => {
     })
 
     describe('failing requires', () => {
-      it.only('fails when channel is not open', async () => {
+      it('fails when channel is not open', async () => {
         //first, start exit on the channel
         const payment = getDepositArgs("empty", {
           ...state,
@@ -1660,6 +1660,20 @@ contract("ChannelManager", accounts => {
         
         //then, try exiting again
         await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('channel must be open')
+      })
+
+      it.only('fails when sender is not hub or user', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await startExitWithUpdate(update, performer, 0).should.be.rejectedWith('exit initiator must be user or hub')
       })
     })
 
