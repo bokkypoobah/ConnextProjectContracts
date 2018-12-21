@@ -834,7 +834,7 @@ contract("ChannelManager", accounts => {
       initHubReserveToken = await cm.getHubReserveTokens()
     })
 
-    describe.only("happy case", () => {
+    describe("happy case", () => {
       it('hub deposit wei', async () => {
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -1536,6 +1536,7 @@ contract("ChannelManager", accounts => {
       })
     })
 
+    //TODO
     describe('edge cases', () => {
       it('startExit a zero state', async () => {
 
@@ -1641,7 +1642,25 @@ contract("ChannelManager", accounts => {
     })
 
     describe('failing requires', () => {
+      it.only('fails when channel is not open', async () => {
+        //first, start exit on the channel
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
 
+        const tx = await startExitWithUpdate(update, viewer, 0)
+
+        await verifyStartExit(viewer, update, tx, false)
+        
+        //then, try exiting again
+        await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('channel must be open')
+      })
     })
 
     describe('edge cases', () => {

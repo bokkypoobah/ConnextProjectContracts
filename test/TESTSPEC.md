@@ -194,7 +194,7 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ### startExitWithUpdate
 
-1. TESTME Fails if channel status is not open
+1. Fails if channel status is not open
     - with "channel must be open"
 2. TESTME Fails if `msg.sender` is not the hub or the submitted user
     - with "exit initiator must be user or hub"
