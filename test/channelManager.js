@@ -639,7 +639,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(newUpdate, viewer, 10).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount')
       })
 
-      it.only('fails when wei is not conserved', async () => {
+      it('fails when wei is not conserved', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -653,7 +653,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('wei must be conserved')
       })
 
-      it.only('fails when token are not conserved', async () => {
+      it('fails when token are not conserved', async () => {
         const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
@@ -667,26 +667,32 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('tokens must be conserved')
       })
 
-      it('fails when insufficient reserve wei', async () => {
+      it.only('fails when insufficient reserve wei', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositWeiHub: 1001
+          depositWeiHub: 1001,
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.sigUser = await getSig(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve wei for deposits')
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient reserve wei for deposits')
       })
 
-      it('fails when insufficient reserve token', async () => {
+      it.only('fails when insufficient reserve token', async () => {
+        const timeout = minutesFromNow(5)
         const deposit = getDepositArgs("empty", {
           ...state,
-          depositTokenHub: 1001
+          depositTokenHub: 1001,
+          depositWeiUser: 10,
+          timeout
         })
-        const update = sg.proposePendingDeposit(state, deposit)
-        update.sigUser = await getSig(update, viewer)
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
 
-        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('insufficient reserve tokens for deposits')
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith('insufficient reserve tokens for deposits')
       })
 
       it('fails when current total channel wei + both deposits is less than final balances + withdrawals', async () => {
