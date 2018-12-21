@@ -1507,16 +1507,21 @@ contract("ChannelManager", accounts => {
         const tx = await startExit(state, viewer, 0).should.be.rejectedWith('user can not be hub')
       })
 
-      it.only('fails when user is contract', async () => {
+      it('fails when user is contract', async () => {
         state.user = cm.address
         const tx = await startExit(state, viewer, 0).should.be.rejectedWith('user can not be channel manager')
       })
 
-      it('fails when channel is open', async () => {
-
+      it('fails when channel is not open', async () => {
+        //first, start exit on the channel
+        const tx = await startExit(state, viewer, 0)
+        await verifyStartExit(viewer, state, tx, false)
+        
+        //then, try exiting again
+        await startExit(state, viewer, 0).should.be.rejectedWith('channel must be open')
       })
 
-      it('fails when exit initiator is not user or hub', async () => {
+      it.only('fails when exit initiator is not user or hub', async () => {
 
       })
     })
