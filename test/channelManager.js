@@ -2109,8 +2109,19 @@ contract("ChannelManager", accounts => {
         await emptyChannelWithChallenge(update, viewer, 0).should.be.rejectedWith('challenger can not be exit initiator.')
       })
 
-      it('Fails when the sender is not either the hub or submitted user', async () => {
-        
+      it.only('Fails when the sender is not either the hub or submitted user', async () => {
+        await startExit(state, viewer, 0)
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+  
+        await emptyChannelWithChallenge(update, performer, 0).should.be.rejectedWith('challenger must be either user or hub.')
       })
 
       it('Fails when timeout is nonzero', async () => {

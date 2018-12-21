@@ -251,9 +251,9 @@ TODO Test possible states for revertPendingUpdates
     - with "channel must be in dispute"
 2. TESTME Fails if the closing time has passed
     - with "channel closing time must not have passed"
-3. TESTME Fails if `msg.sender` initiated the exit
+3. Fails if `msg.sender` initiated the exit
     - with "challenger can not be exit initiator"
-4. TESTME Fails if `msg.sender` is not either the hub or the submitted user
+4. Fails if `msg.sender` is not either the hub or the submitted user
     - with "challenger must be either user or hub"
 5. TESTME Fails if timeout is nonzero
     - with "can't start exit with time-sensistive states"
