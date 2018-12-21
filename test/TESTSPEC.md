@@ -228,9 +228,9 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
     - with "hub signature invalid"
 17. Fails if user is not the signer of sigUser
     - with "user signature invalid"
-17. TESTME Fails if `txCount[0]` is not higher than the current `txCount[0]`
+17. Fails if `txCount[0]` is not higher than the current `txCount[0]`
     - with "global txCount must be higher than the current global txCount"
-18. TESTME Fails if `txCount[1]` is strictly less than current `txCount[1]`
+18. Fails if `txCount[1]` is strictly less than current `txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
 19. TESTME Fails if offchain wei balances exceed onchain wei
     - with "wei must be conserved"

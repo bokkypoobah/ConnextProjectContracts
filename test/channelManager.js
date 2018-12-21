@@ -1756,6 +1756,56 @@ contract("ChannelManager", accounts => {
           await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('user signature invalid')
         }
       })
+
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
+        // Part 1 - txCount[0] = channel.txCount[0]
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        //curent txCountGlobal onchain is 1 because we've done one deposit before dispute
+        update.txCountGlobal = 1
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount.')
+      })
+
+      it('fails when txCount[0] <= channel.txCount[0]', async () => {
+        // Part 2 - txCount[0] < channel.txCount[0]
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        //curent txCountGlobal onchain is 1 because we've done one deposit before dispute
+        update.txCountGlobal = 0
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('global txCount must be higher than the current global txCount.')
+      })
+
+      it('fails when txCount[1] < channel.txCount[1]', async () => {
+        const payment = getDepositArgs("empty", {
+          ...state,
+          amountWei: 3,
+          amountToken: 0,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        //curent txCountChain onchain is 1 because we've done one deposit before dispute
+        update.txCountChain = 0
+        update.sigUser = await getSig(update, viewer)
+        update.sigHub = await getSig(update, hub)
+
+        await startExitWithUpdate(update, viewer, 0).should.be.rejectedWith('onchain txCount must be higher or equal to the current onchain txCount.')
+      })
     })
 
     describe('edge cases', () => {
