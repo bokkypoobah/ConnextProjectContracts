@@ -1868,14 +1868,16 @@ contract("ChannelManager", accounts => {
       confirmed = await validator.generateConfirmPending(update, {
         transactionHash: tx.tx
       })
-      confirmed.sigUser = getSig(confirmed, viewer)
-      confirmed.sigHub = getSig(confirmed, hub)
+      confirmed.sigUser = await getSig(confirmed, viewer)
+      confirmed.sigHub = await getSig(confirmed, hub)
 
       // initial state is the confirmed values with txCountGlobal rolled back
+      state = { ...confirmed }
+      /*
       state = {
         ...confirmed,
         txCountGlobal: confirmed.txCountGlobal - 1
-      }
+      }*/
     })
 
     it('challenge after viewer startExit', async () => {
@@ -2105,8 +2107,6 @@ contract("ChannelManager", accounts => {
       update2.sigHub = await getSig(update2, hub)
 
       // 3. start exit with the pending deposit update
-      console.log(state)
-      console.log(update)
       await startExitWithUpdate(update, viewer, 0)
 
       // set the user initial wei balance here b/c they pay startExit gas
@@ -2115,9 +2115,9 @@ contract("ChannelManager", accounts => {
       // 4. challenge with the payment update
       const tx = await emptyChannelWithChallenge(update2, hub, 0)
 
-      // user/hub withdrawn balances should account for committed pending ops
-      update2.userWeiTransfer = 12 // deposit 10, deposit 5, spend 3
-      update2.userTokenTransfer = 65 // deposit 11, deposit 54
+      // user/hub withdrawn balances should reflect initial balance and payment
+      update2.userWeiTransfer = 7 // initial user balance (10) - payment (3)
+      update2.userTokenTransfer = 11 // initial user balance (11)
       update2.initHubReserveWei = initHubReserveWei
       update2.initHubReserveToken = initHubReserveToken
 
