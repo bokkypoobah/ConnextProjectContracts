@@ -186,11 +186,11 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
     - with "user can not be hub"
 2. Fails if user is the channel manager
     - with "user can not be channel manager"
-3. TESTME Fails if channel is not open
+3. Fails if channel is not open
     - with "channel must be open"
-4. TESTME Fails if the function is called by someone other than the hub or the passsed in user
+4. Fails if the function is called by someone other than the hub or the passsed in user
     - with "exit initiator must be user or hub"
-5. TESTME verify that `exitInitiator`, `channelClosingTime` and `status` are set correctly in success case
+5. verify that `exitInitiator`, `channelClosingTime` and `status` are set correctly in success case
 
 ### startExitWithUpdate
 

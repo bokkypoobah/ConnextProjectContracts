@@ -1521,8 +1521,8 @@ contract("ChannelManager", accounts => {
         await startExit(state, viewer, 0).should.be.rejectedWith('channel must be open')
       })
 
-      it.only('fails when exit initiator is not user or hub', async () => {
-
+      it('fails when exit initiator is not user or hub', async () => {
+        const tx = await startExit(state, performer, 0).should.be.rejectedWith('exit initiator must be user or hub')
       })
     })
 
