@@ -404,7 +404,9 @@ contract ChannelManager {
         }
 
         // update state variables
-        channel.txCount = txCount;
+        // only update txCount[0] (global)
+        // - txCount[1] should only be updated by user/hubAuthorizedUpdate or emptying
+        channel.txCount[0] = txCount[0];
         channel.threadRoot = threadRoot;
         channel.threadCount = threadCount;
 
@@ -498,6 +500,8 @@ contract ChannelManager {
         channel.tokenBalances[1] = 0;
 
         // update state variables
+        // update both txCounts -> emptying counts as a valid onchain update
+        // - txCount[1] should only be updated by user/hubAuthorizedUpdate or emptying
         channel.txCount = txCount;
         channel.threadRoot = threadRoot;
         channel.threadCount = threadCount;
@@ -1095,5 +1099,4 @@ contract ChannelManager {
             channel.status
         );
     }
-
 }
