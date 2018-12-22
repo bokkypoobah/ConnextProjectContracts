@@ -308,15 +308,15 @@ TODO Test possible states for revertPendingUpdates
 
 ### emptyChannel
 
-1. TESTME Fails if user is hub
+1. Fails if user is hub
     - with "user can not be hub"
-2. TESTME Fails if user is channel manager
+2. Fails if user is channel manager
     - with "user can ot be channel manager"
-3. TESTME Fails if channel is not in dispute status
+3. Fails if channel is not in dispute status
     - with "channel must be in dispute"
-4. TESTME Fails if channel closing time has not passed and `msg.sender` is the exit initiator
+4. Fails if channel closing time has not passed and `msg.sender` is the exit initiator
     - with "channel closing time must have passed or msg.sender must be non-exit-initiating party"
-5. TESTME Fails if token transfer fails
+5. Fails if token transfer fails
     - with "user token withdrawal transfer failed"
 6. TESTME verify that correct amounts are transferred during success case and that all state is updated correctly
 

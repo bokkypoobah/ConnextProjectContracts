@@ -242,8 +242,8 @@ async function emptyChannelWithChallenge(state, account, wei = 0) {
   )
 }
 
-async function emptyChannel(account, wei = 0) {
-  return await cm.startExit(account.address, { from: account.address, value: wei })
+async function emptyChannel(state, account, wei = 0) {
+  return await cm.emptyChannel(state.user, { from: account.address, value: wei })
 }
 
 async function submitUserAuthorized(userAccount, hubAccount, wei = 0, ...overrides) {
@@ -2449,12 +2449,85 @@ contract("ChannelManager", accounts => {
   */
 
   describe('emptyChannel', () => {
-    describe('happy case', () => {
+    beforeEach(async () => {
+      await token.transfer(cm.address, 1000, { from: hub.address })
+      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
 
+      initHubReserveWei = await cm.getHubReserveWei()
+      initHubReserveToken = await cm.getHubReserveTokens()
+
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 10,
+        depositTokenUser: 11,
+        depositWeiHub: 12,
+        depositTokenHub: 13,
+        timeout: minutesFromNow(5)
+      })
+      const update = validator.generateProposePendingDeposit(state, deposit)
+
+      update.sigUser = await getSig(update, viewer)
+      const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+      confirmed = await validator.generateConfirmPending(update, {
+        transactionHash: tx.tx
+      })
+      confirmed.sigUser = await getSig(confirmed, viewer)
+      confirmed.sigHub = await getSig(confirmed, hub)
+
+      // initial state is the confirmed values with txCountGlobal rolled back
+      state = {
+        ...confirmed,
+        txCountGlobal: confirmed.txCountGlobal - 1
+      }
     })
 
-    describe('failing requires', () => {
+    describe('happy case', () => {
+      it('empty after viewer startExit', async () => {
+        await startExit(state, viewer, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+  
+        const tx = await emptyChannel(state, hub, 0)
+        state.userWeiTransfer = 10 // initial user balance (10)
+        state.userTokenTransfer = 11 // initial user balance (11)
+        state.initHubReserveWei = initHubReserveWei
+        state.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, state, tx, true)
+      })
+    })
 
+    describe.only('failing requires', () => {
+      //tests done using empty after viewer startExit base
+      it('Fails when user is hub', async () => {
+        await startExit(state, viewer, 0)
+        state.user = hub.address
+        await emptyChannel(state, hub, 0).should.be.rejectedWith('user can not be hub.')
+      })
+
+      it('Fails when user is channel manager', async () => {
+        await startExit(state, viewer, 0)
+        state.user = cm.address
+        await emptyChannel(state, hub, 0).should.be.rejectedWith('user can not be channel manager.')
+      })
+
+      it('Fails when channel is not in dispute status', async () => {
+        await emptyChannel(state, hub, 0).should.be.rejectedWith('channel must be in dispute.')
+      })
+
+      it('Fails when channel closing time has not passed and sender is the initiator', async () => {
+        await startExit(state, viewer, 0)
+        await emptyChannel(state, viewer, 0).should.be.rejectedWith('channel closing time must have passed or msg.sender must be non-exit-initiating party.')
+      })
+
+      //This is actually impossible to test:
+      // 1. This req only fails if there is insuffient token to send to user
+      // 2. The amount of token to be sent to user is determined by previously recorded onchain state
+      // 3. The only valid previously recorded onchain states are ones where there is enough reserve tokens
+      //    to allow for this withdrawal to occur.
+      //
+      // Theoretically, the only way this fails is if we get hacked or if the token is not actually erc20
+      it('Fails if token transfer fails', async () => {})
     })
 
     describe('edge cases', () => {
