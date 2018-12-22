@@ -694,7 +694,18 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 20).should.be.rejectedWith('msg.value is not equal to pending user deposit.')
       })
 
-      //TODO it('hubAuthorizedUpdate - fails when channel status is not "Open"')
+      it.only('userAuthorizedUpdate - fails when channel status is not "Open"', async () => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiUser: 10,
+          timeout: minutesFromNow(5)
+        })
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
+
+        await startExit(update, hub, 0)
+        await userAuthorizedUpdate(update, viewer, 10).should.be.rejectedWith("channel must be open.")
+      })
 
       it('fails when timeout expired', async () => {
         const timeout = 1
@@ -1276,7 +1287,17 @@ contract("ChannelManager", accounts => {
         await hubAuthorizedUpdate(update, viewer, 0).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
       })
 
-      //TODO it('hubAuthorizedUpdate - fails when channel status is not "Open"')
+      it.only('hubAuthorizedUpdate - fails when channel status is not "Open"', async() => {
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiHub: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        
+        await startExit(update, viewer, 0)
+        await hubAuthorizedUpdate(update, hub, 0).should.be.rejectedWith('channel must be open.')
+      })
 
       it('fails when timeout expired', async () => {
         const deposit = getDepositArgs("empty", {
