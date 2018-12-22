@@ -688,7 +688,7 @@ contract("ChannelManager", accounts => {
         await userAuthorizedUpdate(update, viewer, 20).should.be.rejectedWith('msg.value is not equal to pending user deposit.')
       })
 
-      it.only('userAuthorizedUpdate - fails when channel status is not "Open"', async () => {
+      it('userAuthorizedUpdate - fails when channel status is not "Open"', async () => {
         const deposit = getDepositArgs("empty", {
           ...state,
           depositWeiUser: 10,
@@ -1265,7 +1265,7 @@ contract("ChannelManager", accounts => {
         await hubAuthorizedUpdate(update, viewer, 0).should.be.rejectedWith('Returned error: VM Exception while processing transaction: revert')
       })
 
-      it.only('hubAuthorizedUpdate - fails when channel status is not "Open"', async() => {
+      it('hubAuthorizedUpdate - fails when channel status is not "Open"', async() => {
         const deposit = getDepositArgs("empty", {
           ...state,
           depositWeiHub: 10
@@ -1740,14 +1740,21 @@ contract("ChannelManager", accounts => {
       })
     })
 
-    //TODO
     describe('edge cases', () => {
       it('startExit a zero state', async () => {
-
+        // This is already tested in the userAuthUpdate and hubAuthUpdate 
+        // "channel status is not open" tests
       })
 
       it('successfully startExit twice in a row', async () => {
+        //First startExit with any state and empty
+        await startExit(state, viewer, 0)
+        await emptyChannel(state, hub, 0)
+        await verifyChannelBalances(viewer, zeroBalances(state))
 
+        //Then try starting exit again (this time with zero balances)
+        const tx = await startExit(zeroBalances(state), viewer, 0)
+        await verifyStartExit(viewer, zeroBalances(state), tx, false)
       })
     })
   })
