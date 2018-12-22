@@ -20,7 +20,7 @@ Expect
     - with "VM Exception while processing transaction: revert"
 1. Fails if `msg.sender` is not hub
     - with TODO
-2. TESTME Fails if channel status is not `Open`.
+2. Fails if channel status is not `Open`.
     - with "channel must be open"
 3. Fails if timeout is not 0 and `timeout <= now`
     - with "the timeout must be zero or not have passed"
@@ -101,7 +101,7 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 Expect
 1. Fails if `msg.value` is not equal to `pendingWeiUpdates[2]`
     - with "msg.value is not equal to pending user deposit"
-2. TESTME Fails if channel status is not `Open`.
+2. Fails if channel status is not `Open`.
     - with "channel must be open"
 3. Fails if timeout is not 0 and `timeout <= now`
     - with "the timeout must be zero or not have passed"
@@ -323,17 +323,6 @@ TODO Test possible states for revertPendingUpdates
 ## Unilateral Thread Tests
 
 MOSTLY PUNT
-
-1. TESTME Fails when you call startExitThread with a threadCount of 0
-2. TESTME Fails when you call startExitThread with a threadRoot of 0x0
-3. TESTME Fails when you call startExitThreadWithUpdate with a threadCount of 0
-4. TESTME Fails when you call startExitThreadWithUpdate with a threadRoot of 0x0
-5. TESTME Fails when you call challengeThread with a threadCount of 0
-6. TESTME Fails when you call challengeThread with a threadRoot of 0x0
-7. TESTME Fails when you call emptyThread with a threadCount of 0
-8. TESTME Fails when you call emptyThread with a threadRoot of 0x0
-9. TESTME Fails when you call nukeThreads with a threadCount of 0
-10. TESTME Fails when you call nukeThreads with a threadRoot of 0x0
 
 ## ---- Arjun Temporary Notes ----
 
