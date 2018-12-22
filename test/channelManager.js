@@ -29,6 +29,7 @@ const emptyRootHash =
   "0x0000000000000000000000000000000000000000000000000000000000000000"
 
 const emptyAddress = "0x0000000000000000000000000000000000000000"
+const someAddress = "0xabcd000000000000000000000000000000000000"
 
 const SolRevert = 'VM Exception while processing transaction: revert'
 
@@ -550,6 +551,11 @@ contract("ChannelManager", accounts => {
       const userTokenBalance = 1000
       await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
       await token.approve(cm.address, userTokenBalance, { from: viewer.address })
+
+      await token.transfer(cm.address, 1000, { from: hub.address })
+      await web3.eth.sendTransaction({ from: hub.address, to: cm.address, value: 700 })
+      initHubReserveWei = await cm.getHubReserveWei()
+      initHubReserveToken = await cm.getHubReserveTokens()
     })
 
     describe("happy case", () => {
@@ -597,6 +603,79 @@ contract("ChannelManager", accounts => {
 
         const hubReserveWei = await cm.getHubReserveWei()
         assert.equal(hubReserveWei, 0)
+      })
+
+      // userAuthorizedDeposit - real world sim
+      //  1. User deposit ETH + hub deposit BOOTY
+      //  2. Offchain exchange ETH - BOOTY
+      //  3. Tip all the BOOTY
+      //  4. User deposit ETH + hub withdrawal ETH
+      it('viewer simulation', async () => {
+        //  1. User deposit ETH + hub deposit BOOTY
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositWeiUser: 100,
+          depositTokenHub: 69,
+          timeout: minutesFromNow(5)
+        })
+
+        const update = validator.generateProposePendingDeposit(state, deposit)
+        update.sigHub = await getSig(update, hub)
+        const tx = await userAuthorizedUpdate(update, viewer, 100)
+        await verifyUserAuthorizedUpdate(viewer, update, tx)
+
+        // 1.5 confirm the deposit
+        const confirmed = await validator.generateConfirmPending(update, {
+          transactionHash: tx.tx
+        })
+        confirmed.sigHub = await getSig(confirmed, hub)
+
+        const exchange = getExchangeArgs("empty", {
+          ...confirmed,
+          seller: "hub",
+          tokensToSell: 69,
+          exchangeRate: "1"
+        })
+
+        //  2. Offchain exchange ETH - BOOTY
+        const update2 = validator.generateExchange(confirmed, exchange)
+        update2.sigHub = await getSig(update, hub)
+
+        //  3. Tip all of the BOOTY
+        const payment = getPaymentArgs("empty", {
+          ...update2,
+          amountWei: 0,
+          amountToken: 69,
+          recipient: 'hub'
+        })
+        const update3 = validator.generateChannelPayment(update2, payment)
+
+        // 4. user tops up wei while hub withdraws wei
+        // Note - this isn't supported through proposePendingDeposit
+        // Using proposePendingInstead
+        const pending = getPendingArgs("empty", {
+          ...update3,
+          depositWeiUser: 50,
+          withdrawalWeiHub: 69
+        })
+        const update4 = sg.proposePending(update3,
+          convertProposePending("bn", pending)
+        )
+        update4.sigHub = await getSig(update4, hub)
+        const tx2 = await userAuthorizedUpdate(update4, viewer, 50)
+        await verifyUserAuthorizedUpdate(viewer, update4, tx2, false)
+
+        const totalChannelWei = await cm.totalChannelWei.call()
+        assert.equal(+totalChannelWei, 81) // 100 - 69 + 50
+
+        const hubReserveWei = await cm.getHubReserveWei()
+        assert.equal(hubReserveWei, +initHubReserveWei + 69)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        assert.equal(+totalChannelToken, 69)
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        assert.equal(hubReserveToken, +initHubReserveToken - 69)
       })
     })
 
@@ -1001,11 +1080,11 @@ contract("ChannelManager", accounts => {
         const confirmed = await validator.generateConfirmPending(update, {
           transactionHash: tx.tx
         })
-        confirmed.sigUser = getSig(confirmed, viewer)
-        confirmed.sigHub = getSig(confirmed, hub)
+        confirmed.sigUser = await getSig(confirmed, viewer)
+        confirmed.sigHub = await getSig(confirmed, hub)
 
         // apply payment and send to chain
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...confirmed,
           amountWei: 3,
           amountToken: 0,
@@ -1041,7 +1120,7 @@ contract("ChannelManager", accounts => {
         confirmed.sigHub = getSig(confirmed, hub)
 
         // apply payment but don't send to chain
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...confirmed,
           amountWei: 3,
           amountToken: 0,
@@ -1086,19 +1165,19 @@ contract("ChannelManager", accounts => {
         const confirmed = await validator.generateConfirmPending(update, {
           transactionHash: tx.tx
         })
-        confirmed.sigUser = getSig(confirmed, viewer)
-        confirmed.sigHub = getSig(confirmed, hub)
+        confirmed.sigUser = await getSig(confirmed, viewer)
+        confirmed.sigHub = await getSig(confirmed, hub)
 
         // apply payment but don't send to chain
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...confirmed,
           amountWei: 0,
           amountToken: 3,
           recipient: 'hub'
         })
         const update2 = validator.generateChannelPayment(confirmed, payment)
-        update2.sigUser = getSig(update2, viewer)
-        update2.sigHub = getSig(update2, hub)
+        update2.sigUser = await getSig(update2, viewer)
+        update2.sigHub = await getSig(update2, hub)
 
         // withdraw all token
         const withdrawal = getWithdrawalArgs("empty", {
@@ -1119,6 +1198,52 @@ contract("ChannelManager", accounts => {
 
         const hubReserveToken = await cm.getHubReserveTokens()
         hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 7);
+      })
+
+      it('commit an update on an unresolved pending state', async () => {
+        // setup - need token in the channel first
+        const deposit = getDepositArgs("empty", {
+          ...state,
+          depositTokenUser: 10
+        })
+        const update = sg.proposePendingDeposit(state, deposit)
+        update.sigUser = await getSig(update, viewer)
+        const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+        const confirmed = await validator.generateConfirmPending(update, {
+          transactionHash: tx.tx
+        })
+        confirmed.sigUser = await getSig(confirmed, viewer)
+        confirmed.sigHub = await getSig(confirmed, hub)
+
+        // 1. propose new pending deposit, sign, but don't commit
+        const deposit2 = getDepositArgs("empty", {
+          ...confirmed,
+          depositTokenUser: 15
+        })
+        const update2 = sg.proposePendingDeposit(confirmed, deposit2)
+        update2.sigUser = await getSig(update2, viewer)
+
+        // 2. generate payment update on the pending state and commit
+        const payment = getPaymentArgs("empty", {
+          ...update2,
+          amountWei: 0,
+          amountToken: 3,
+          recipient: 'hub'
+        })
+        const update3 = validator.generateChannelPayment(update2, payment)
+        update3.sigUser = await getSig(update3, viewer)
+        update3.sigHub = await getSig(update3, hub)
+
+        const tx2 = await hubAuthorizedUpdate(update3, hub, 0)
+
+        await verifyHubAuthorizedUpdate(viewer, update3, tx2, true)
+
+        const totalChannelToken = await cm.totalChannelToken.call()
+        totalChannelToken.should.be.bignumber.equal(25);
+
+        const hubReserveToken = await cm.getHubReserveTokens()
+        hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 25);
       })
 
       // TODO exchange in channel, then withdraw
@@ -1339,7 +1464,6 @@ contract("ChannelManager", accounts => {
 
     describe('edge cases', () => {
       it('wei/token user/hub deposit > withdrawal > 0', async () => {
-        // TODO use proposePendingUpdate
         const update = {
           ...state,
           pendingDepositWeiHub: 2,
@@ -1379,14 +1503,14 @@ contract("ChannelManager", accounts => {
         hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 15)
       })
 
-      it.skip('wei/token user/hub withdrawal > deposit > 0', async () => {
+      it('wei/token user/hub withdrawal > deposit > 0', async () => {
         const deposit = getDepositArgs("empty", {
           ...state,
           depositWeiHub: 10,
           depositWeiUser: 11,
           depositTokenHub: 12,
           depositTokenUser: 13,
-          timeout: minutesFromNow(5) // TODO remove this, not needed for hubAuth
+          timeout: 0
         })
         const update = validator.generateProposePendingDeposit(state, deposit)
         update.sigUser = await getSig(update, viewer)
@@ -1396,22 +1520,24 @@ contract("ChannelManager", accounts => {
           transactionHash: tx.tx
         })
 
-        const update2 = {
+        const pending = getPendingArgs("empty", {
           ...confirmed,
-          pendingDepositWeiHub: 1,
-          pendingWithdrawalWeiHub: 2,
-          pendingDepositWeiUser: 3,
-          pendingWithdrawalWeiUser: 5,
-          pendingDepositTokenHub: 4,
-          pendingWithdrawalTokenHub: 6,
-          pendingDepositTokenUser: 7,
-          pendingWithdrawalTokenUser: 13,
-          txCountGlobal: confirmed.txCountGlobal + 1,
-          txCountChain: confirmed.txCountChain + 1
-        }
+          depositWeiUser: 3,
+          depositWeiHub: 1,
+          depositTokenUser: 7,
+          depositTokenHub: 4,
+          withdrawalWeiUser: 5,
+          withdrawalWeiHub: 2,
+          withdrawalTokenUser: 13,
+          withdrawalTokenHub: 6,
+          timeout: 0
+        })
 
-        // TODO use proposePendingUpdate
-        // Duh, it's not taking into account the balance pre-processing
+        const update2 = sg.proposePending(confirmed,
+          convertProposePending("bn", pending)
+        )
+        // TODO use validator
+        // const update2 = validator.generateProposePending(confirmed, pending)
 
         update2.sigUser = await getSig(update2, viewer)
         const tx2 = await hubAuthorizedUpdate(update2, hub, 0)
@@ -1438,34 +1564,117 @@ contract("ChannelManager", accounts => {
         hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 30)
       })
 
+      describe('performer collateral/tip/withdraw', () => {
+        beforeEach(async () => {
+          // hub collateralize
+          const deposit = getDepositArgs("empty", {
+            ...state,
+            depositTokenHub: 12,
+            timeout: 0
+          })
+          const update = validator.generateProposePendingDeposit(state, deposit)
+          update.sigUser = await getSig(update, viewer)
+          const tx = await hubAuthorizedUpdate(update, hub, 0)
+
+          confirmed = await validator.generateConfirmPending(update, {
+            transactionHash: tx.tx
+          })
+          confirmed.sigHub = await getSig(confirmed, hub)
+
+          // performer receives a tip
+          const payment = getPaymentArgs("empty", {
+            ...confirmed,
+            amountWei: 0,
+            amountToken: 2,
+            recipient: 'user'
+          })
+          const update2 = validator.generateChannelPayment(confirmed, payment)
+          update2.sigHub = await getSig(update2, hub)
+
+          state = update2
+        })
+
+        it('withdraw to user account', async () => {
+          // performer withdraws in ETH, hub empties channel as well
+          const withdrawal = getWithdrawalArgs("empty", {
+            ...state,
+            targetWeiUser: 0,
+            targetWeiHub: 0,
+            targetTokenUser: 0,
+            targetTokenHub: 0,
+            tokensToSell: 2,
+            exchangeRate: "2"
+          })
+          const update = sg.proposePendingWithdrawal(
+            convertChannelState("bn", state),
+            convertWithdrawal("bn", withdrawal)
+          )
+
+          update.sigUser = await getSig(update, viewer)
+
+          const tx = await hubAuthorizedUpdate(update, hub, 0)
+          await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+          const totalChannelWei = await cm.totalChannelWei.call()
+          assert.equal(+totalChannelWei, 0)
+
+          // 1 wei should have been sent to the performer
+          // tip 2 booty -> exchange 2/1 for 1 wei
+          const hubReserveWei = await cm.getHubReserveWei()
+          hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 1)
+
+          const totalChannelToken = await cm.totalChannelToken.call()
+          assert.equal(+totalChannelToken, 0)
+
+          const hubReserveToken = await cm.getHubReserveTokens()
+          hubReserveToken.should.be.bignumber.equal(initHubReserveToken)
+        })
+
+        it('withdraw to recipient account', async () => {
+          // performer withdraws in ETH, hub empties channel as well
+          const withdrawal = getWithdrawalArgs("empty", {
+            ...state,
+            targetWeiUser: 0,
+            targetWeiHub: 0,
+            targetTokenUser: 0,
+            targetTokenHub: 0,
+            tokensToSell: 2,
+            exchangeRate: "2",
+            recipient: someAddress
+          })
+          const update = sg.proposePendingWithdrawal(
+            convertChannelState("bn", state),
+            convertWithdrawal("bn", withdrawal)
+          )
+
+          update.sigUser = await getSig(update, viewer)
+
+          const tx = await hubAuthorizedUpdate(update, hub, 0)
+          await verifyHubAuthorizedUpdate(viewer, update, tx, true)
+
+          const totalChannelWei = await cm.totalChannelWei.call()
+          assert.equal(+totalChannelWei, 0)
+
+          // 1 wei should have been sent to the performer
+          // tip 2 booty -> exchange 2/1 for 1 wei
+          const hubReserveWei = await cm.getHubReserveWei()
+          hubReserveWei.should.be.bignumber.equal(initHubReserveWei - 1)
+
+          const totalChannelToken = await cm.totalChannelToken.call()
+          assert.equal(+totalChannelToken, 0)
+
+          const hubReserveToken = await cm.getHubReserveTokens()
+          hubReserveToken.should.be.bignumber.equal(initHubReserveToken)
+
+          recipientBalance = await web3.eth.getBalance(someAddress)
+          assert.equal(recipientBalance, 1)
+        })
+      })
+
+
       // 3. Exchange
       // 4. Recipient
 
-    })
-  })
-
-  // TODO use proposePendingUpdate to do edge cases
-  describe.skip("userAuthorizedUpdate - withdrawal", () => {
-    let confirmed
-
-    beforeEach(async () => {
-      const userTokenBalance = 1000
-      await token.transfer(viewer.address, userTokenBalance, { from: hub.address })
-      await token.approve(cm.address, userTokenBalance, { from: viewer.address })
-
-      const deposit = getDepositArgs("empty", {
-        ...state,
-        depositWeiUser: 10,
-        timeout: minutesFromNow(5)
-      })
-      const update = validator.generateProposePendingDeposit(state, deposit)
-
-      update.sigHub = await getSig(update, hub)
-      const tx = await userAuthorizedUpdate(update, viewer, 10)
-
-      confirmed = await validator.generateConfirmPending(update, {
-        transactionHash: tx.tx
-      })
     })
   })
 
@@ -1573,8 +1782,8 @@ contract("ChannelManager", accounts => {
       confirmed = await validator.generateConfirmPending(update, {
         transactionHash: tx.tx
       })
-      confirmed.sigUser = getSig(confirmed, viewer)
-      confirmed.sigHub = getSig(confirmed, hub)
+      confirmed.sigUser = await getSig(confirmed, viewer)
+      confirmed.sigHub = await getSig(confirmed, hub)
 
       // initial state is the confirmed values with txCountGlobal rolled back
       state = {
@@ -1585,7 +1794,7 @@ contract("ChannelManager", accounts => {
 
     describe('happy case', () => {
       it('startExitWithUpdate as user', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1613,7 +1822,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('startExitWithUpdate as hub', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1645,7 +1854,7 @@ contract("ChannelManager", accounts => {
     describe('failing requires', () => {
       it('fails when channel is not open', async () => {
         //first, start exit on the channel
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1664,7 +1873,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when sender is not hub or user', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1678,7 +1887,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when timeout is nonzero', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1693,7 +1902,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when user is hub', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1708,7 +1917,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when user is hub', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1723,7 +1932,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when hub signature is incorrect (long test)', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1741,7 +1950,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when user signature is incorrect (long test)', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1760,7 +1969,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when txCount[0] <= channel.txCount[0]', async () => {
         // Part 1 - txCount[0] = channel.txCount[0]
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1777,7 +1986,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when txCount[0] <= channel.txCount[0]', async () => {
         // Part 2 - txCount[0] < channel.txCount[0]
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1793,7 +2002,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when txCount[1] < channel.txCount[1]', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1809,7 +2018,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when wei is not conserved', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1824,7 +2033,7 @@ contract("ChannelManager", accounts => {
       })
 
       it('fails when token are not conserved', async () => {
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -1873,11 +2082,6 @@ contract("ChannelManager", accounts => {
 
       // initial state is the confirmed values with txCountGlobal rolled back
       state = { ...confirmed }
-      /*
-      state = {
-        ...confirmed,
-        txCountGlobal: confirmed.txCountGlobal - 1
-      }*/
     })
 
     it('challenge after viewer startExit', async () => {
@@ -1885,7 +2089,7 @@ contract("ChannelManager", accounts => {
       viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
       viewer.initTokenBalance = await token.balanceOf(viewer.address)
 
-      const payment = getDepositArgs("empty", {
+      const payment = getPaymentArgs("empty", {
         ...state,
         amountWei: 3,
         amountToken: 0,
@@ -2016,23 +2220,26 @@ contract("ChannelManager", accounts => {
     it('challenge with a valid update on a committed pending state', async () => {
       viewer.initTokenBalance = await token.balanceOf(viewer.address)
 
-      // 1. generate, and sign a pending deposit update
-      const deposit = getDepositArgs("empty", {
+      // 1. generate, and sign a pending update
+      const pending = getPendingArgs("empty", {
         ...state,
         depositWeiUser: 5,
         depositTokenUser: 54,
         depositWeiHub: 49,
         depositTokenHub: 2,
+        withdrawalWeiUser: 10, // 10 > 5 -> delta deducted from balance
         timeout: 0
       })
 
-      const update = sg.proposePendingDeposit(state, deposit)
+      const update = sg.proposePending(state,
+        convertProposePending("bn", pending)
+      )
       update.sigUser = await getSig(update, viewer)
 
       // 2. generate a valid payment update on the pending deposit update
       const payment = getPaymentArgs("empty", {
         ...update,
-        amountWei: 3,
+        amountWei: 3, // should have 5 in channel (10 - (10 - 5)) - fails with > 5
         amountToken: 0,
         recipient: 'hub'
       })
@@ -2121,7 +2328,7 @@ contract("ChannelManager", accounts => {
     // 4. commit #1 via authorized update
     // 5. startExitWithUpdate (uses #2)
     // 6. emptyChannelWithChallenge (#3)
-    it.only('challenge a startExitWithUpdate update on a pending state', async () => {
+    it('challenge a startExitWithUpdate update on a pending state', async () => {
       viewer.initTokenBalance = await token.balanceOf(viewer.address)
 
       // 1. generate, and sign a pending deposit update
@@ -2186,7 +2393,7 @@ contract("ChannelManager", accounts => {
 
       it('Fails when channel is not in dispute status', async () => {
         //call emptyChannelWithChallenge without first calling startExit
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2201,7 +2408,7 @@ contract("ChannelManager", accounts => {
 
       it('Fails when the closing time has passed', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2218,7 +2425,7 @@ contract("ChannelManager", accounts => {
 
       it('Fails when the sender initiated the exit', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2233,7 +2440,7 @@ contract("ChannelManager", accounts => {
 
       it('Fails when the sender is not either the hub or submitted user', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2248,7 +2455,7 @@ contract("ChannelManager", accounts => {
 
       it('Fails when timeout is nonzero', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2270,7 +2477,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when hub signature is incorrect (long test)', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2289,7 +2496,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when user signature is incorrect (long test)', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2309,7 +2516,7 @@ contract("ChannelManager", accounts => {
       it('fails when txCount[0] <= channel.txCount[0]', async () => {
         // Part 1 - txCount[0] = channel.txCount[0]
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2327,7 +2534,7 @@ contract("ChannelManager", accounts => {
       it('fails when txCount[0] <= channel.txCount[0]', async () => {
         // Part 2 - txCount[0] < channel.txCount[0]
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2344,7 +2551,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when txCount[1] < channel.txCount[1]', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2361,7 +2568,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when wei is not conserved', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2377,7 +2584,7 @@ contract("ChannelManager", accounts => {
 
       it('fails when token are not conserved', async () => {
         await startExit(state, viewer, 0)
-        const payment = getDepositArgs("empty", {
+        const payment = getPaymentArgs("empty", {
           ...state,
           amountWei: 3,
           amountToken: 0,
@@ -2392,61 +2599,8 @@ contract("ChannelManager", accounts => {
       })
 
       //TODO Reverts if token transfer fails - how can this happen?
-
     })
   })
-
-  // TODO might be worth doing these in their own section
-  // - separate from contract unit tests
-
-  // start exit w/ pending state, resolve, challenge with new pending
-  //
-  //
-  //
-  //
-  // ???
-
-  /*
-  describe('from hub startExit', () => {
-    beforeEach(async () => {
-      await startExit(state, hub, 0)
-    })
-
-    describe('happy case', () => {
-
-    })
-
-    describe('failing requires', () => {
-
-    })
-
-    describe('edge cases', () => {
-
-    })
-  })
-
-  describe('from startExitWithUpdate', () => {
-    beforeEach(async () => {
-      const payment = getDepositArgs("empty", {
-        ...state,
-        amountWei: 3,
-        amountToken: 0,
-        recipient: 'hub'
-      })
-      const update = validator.generateChannelPayment(state, payment)
-      update.sigUser = await getSig(update, viewer)
-      update.sigHub = await getSig(update, hub)
-
-      await startExitWithUpdate(update, viewer, 0)
-
-      state = update
-    })
-
-    describe('happy case', () => {
-
-    })
-  })
-  */
 
   describe('emptyChannel', () => {
     beforeEach(async () => {
@@ -2487,7 +2641,7 @@ contract("ChannelManager", accounts => {
         await startExit(state, viewer, 0)
         viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
         viewer.initTokenBalance = await token.balanceOf(viewer.address)
-  
+
         const tx = await emptyChannel(state, hub, 0)
         state.userWeiTransfer = 10 // initial user balance (10)
         state.userTokenTransfer = 11 // initial user balance (11)
@@ -2497,7 +2651,7 @@ contract("ChannelManager", accounts => {
       })
     })
 
-    describe.only('failing requires', () => {
+    describe('failing requires', () => {
       //tests done using empty after viewer startExit base
       it('Fails when user is hub', async () => {
         await startExit(state, viewer, 0)
@@ -2521,12 +2675,12 @@ contract("ChannelManager", accounts => {
       })
 
       //This is actually impossible to test:
-      // 1. This req only fails if there is insuffient token to send to user
+      // 1. This req fails if there is insuffient token to send to user
       // 2. The amount of token to be sent to user is determined by previously recorded onchain state
-      // 3. The only valid previously recorded onchain states are ones where there is enough reserve tokens
+      // 3. The singularly valid previously recorded onchain states are ones where there is enough reserve tokens
       //    to allow for this withdrawal to occur.
       //
-      // Theoretically, the only way this fails is if we get hacked or if the token is not actually erc20
+      // Theoretically, the way this fails is if we get hacked or if the token is not actually erc20
       it('Fails if token transfer fails', async () => {})
     })
 
@@ -2535,33 +2689,3 @@ contract("ChannelManager", accounts => {
     })
   })
 })
-
-// https://github.com/ConnextProject/contracts/blob/master/docs/aggregateUpdates.md
-// 1. user deposit
-// 2. hub deposit
-// 3. user withdrawal
-// 4. hub withdrawal
-// 5. user deposit + hub deposit
-// 6. user deposit + hub withdrawal
-// 7. user withdrawal + hub deposit
-// 8. user w + hub w
-// 9. actual exchange scenarios
-//    - performer withdrawal booty -> eth
-//      - also hub withdraws collateral
-//    - user withdrawal booty -> eth
-//      - also hub withdraws collateral
-// 10. recipient is different than user
-//
-// State Transitions:
-// 1. channelBalances (wei / token)
-// 2. totalChannelWei
-// 3. totalChannelToken
-// 4. channel.weiBalances[2]
-// 5. channel.tokenBalances[2]
-// 6. recipient ether balance
-// 7. recipient token balance
-// 8. contract eth/token balance (reserve)
-// 9. txCount
-// 10. threadRoot
-// 11. threadCount
-// 12. event
