@@ -66,8 +66,11 @@ async function moveForwardSecs(secs) {
     params: [secs],
     id: 0
   }, (err) => { `error increasing time` })
-  const start = Date.now()
-  await ethRPC.sendAsync({ method: `evm_mine` }, (err) => { })
+  // not sure how/why, but having this idle period makes this work
+  const start = Date.now();
+  while (Date.now() < start + 300) {}
+  await ethRPC.sendAsync({method: `evm_mine`}, (err)=> {});
+  while (Date.now() < start + 300) {}
   return true
 }
 
@@ -257,7 +260,7 @@ async function submitUserAuthorized(userAccount, hubAccount, wei = 0, ...overrid
     pendingDepositToken: [7, 0],
     txCount: [1, 1]
   }, overrides)
-  state.sigHub = getSig(state, hubAccount)
+  state.sigHub = await getSig(state, hubAccount)
   return await userAuthorizedUpdate(state, userAccount, wei)
 }
 
@@ -271,7 +274,7 @@ async function submitHubAuthorized(userAccount, hubAccount, wei = 0, ...override
     pendingDepositToken: [7, 0],
     txCount: [1, 1]
   }, overrides)
-  state.sigUser = getSig(state, userAccount)
+  state.sigUser = await getSig(state, userAccount)
   return await hubAuthorizedUpdate(state, hubAccount, wei)
 }
 
@@ -393,16 +396,20 @@ contract("ChannelManager", accounts => {
   }
 
   // pass initHubReserveWei/Token on state obj for convenience
-  const verifyEmptyChannel = async (account, state, tx, isHub) => {
+  const verifyEmptyChannel = async (account, state, tx, isHub, testUserWei=true) => {
     await verifyChannelBalances(account, zeroBalances(state))
 
     // status, channelClosingTime, and exitInitiator are default values
     // which will properly test that they have been reset
     await verifyChannelDetails(account, state)
 
-    // wei is transfered to user
-    const userWeiBalance = await web3.eth.getBalance(account.address)
-    assert.equal(+userWeiBalance, +account.initWeiBalance + state.userWeiTransfer)
+    // conditional to make skipping easy for when user initiates the
+    // emptyChannel/WithChallenge tx
+    if (testUserWei) {
+      // wei is transfered to user
+      const userWeiBalance = await web3.eth.getBalance(account.address)
+      assert.equal(+userWeiBalance, +account.initWeiBalance + state.userWeiTransfer)
+    }
 
     // token is transfered to user
     const userTokenBalance = await token.balanceOf(account.address)
@@ -2656,15 +2663,7 @@ contract("ChannelManager", accounts => {
     })
 
     describe('edge cases', () => {
-      // 1. user start exit -> hub immediately emptyChannel
-      // 2. user start exit -> user emptyChannel after timeout
-      // 3/4 same but hub starts
-      // 5. user startExitWithUpdate -> hub emptyChannel
-      // 6. user startExitWithUpdate -> user emptyChannel after timeout
-      // 7/8 same but hub starts
-
-
-      it('empty after viewer startExit', async () => {
+      it('hub empty after viewer startExit', async () => {
         await startExit(state, viewer, 0)
         viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
         viewer.initTokenBalance = await token.balanceOf(viewer.address)
@@ -2677,6 +2676,133 @@ contract("ChannelManager", accounts => {
         await verifyEmptyChannel(viewer, state, tx, true)
       })
 
+      it('viewer empty after hub startExit', async () => {
+        await startExit(state, hub, 0)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        const tx = await emptyChannel(state, viewer, 0)
+        state.userWeiTransfer = 10 // initial user balance (10)
+        state.userTokenTransfer = 11 // initial user balance (11)
+        state.initHubReserveWei = initHubReserveWei
+        state.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, state, tx, false, false)
+      })
+
+      it('viewer empty after viewer startExit and timeout expires', async () => {
+        const tx_exit = await startExit(state, viewer, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        await moveForwardSecs(challengePeriod * 2)
+
+        const tx = await emptyChannel(state, viewer, 0)
+        state.userWeiTransfer = 10 // initial user balance (10)
+        state.userTokenTransfer = 11 // initial user balance (11)
+        state.initHubReserveWei = initHubReserveWei
+        state.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, state, tx, false, false)
+      })
+
+      it('hub empty after hub startExit and timeout expires', async () => {
+        await startExit(state, hub, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        await moveForwardSecs(challengePeriod * 2)
+
+        const tx = await emptyChannel(state, hub, 0)
+        state.userWeiTransfer = 10 // initial user balance (10)
+        state.userTokenTransfer = 11 // initial user balance (11)
+        state.initHubReserveWei = initHubReserveWei
+        state.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, state, tx, true)
+      })
+
+      it('hub empty after viewer startExitWithUpdate', async () => {
+        const payment = getPaymentArgs("empty", {
+          ...state,
+          amountWei: 5,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+        await startExitWithUpdate(update, viewer, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        const tx = await emptyChannel(state, hub, 0)
+        update.userWeiTransfer = 5 // initial user balance (10) - spent (5)
+        update.userTokenTransfer = 11 // initial user balance (11)
+        update.initHubReserveWei = initHubReserveWei
+        update.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, update, tx, true)
+      })
+
+      it('user empty after hub startExitWithUpdate', async () => {
+        const payment = getPaymentArgs("empty", {
+          ...state,
+          amountWei: 5,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+        await startExitWithUpdate(update, hub, 0)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        const tx = await emptyChannel(state, viewer, 0)
+        update.userWeiTransfer = 5 // initial user balance (10) - spent (5)
+        update.userTokenTransfer = 11 // initial user balance (11)
+        update.initHubReserveWei = initHubReserveWei
+        update.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, update, tx, false, false)
+      })
+
+      it('hub empty after hub startExitWithUpdate and timeout expires', async () => {
+        const payment = getPaymentArgs("empty", {
+          ...state,
+          amountWei: 5,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+        await startExitWithUpdate(update, hub, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        await moveForwardSecs(challengePeriod * 2)
+
+        const tx = await emptyChannel(state, hub, 0)
+        update.userWeiTransfer = 5 // initial user balance (10) - spent (5)
+        update.userTokenTransfer = 11 // initial user balance (11)
+        update.initHubReserveWei = initHubReserveWei
+        update.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, update, tx, true)
+      })
+
+      it('viewer empty after viewer startExitWithUpdate and timeout expires', async () => {
+        const payment = getPaymentArgs("empty", {
+          ...state,
+          amountWei: 5,
+          recipient: 'hub'
+        })
+        const update = validator.generateChannelPayment(state, payment)
+        update.sigHub = await getSig(update, hub)
+        update.sigUser = await getSig(update, viewer)
+        await startExitWithUpdate(update, viewer, 0)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        await moveForwardSecs(challengePeriod * 2)
+
+        const tx = await emptyChannel(state, viewer, 0)
+        update.userWeiTransfer = 5 // initial user balance (10) - spent (5)
+        update.userTokenTransfer = 11 // initial user balance (11)
+        update.initHubReserveWei = initHubReserveWei
+        update.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, update, tx, false, false)
+      })
     })
   })
 })
