@@ -2656,6 +2656,26 @@ contract("ChannelManager", accounts => {
     })
 
     describe('edge cases', () => {
+      // 1. user start exit -> hub immediately emptyChannel
+      // 2. user start exit -> user emptyChannel after timeout
+      // 3/4 same but hub starts
+      // 5. user startExitWithUpdate -> hub emptyChannel
+      // 6. user startExitWithUpdate -> user emptyChannel after timeout
+      // 7/8 same but hub starts
+
+
+      it('empty after viewer startExit', async () => {
+        await startExit(state, viewer, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        const tx = await emptyChannel(state, hub, 0)
+        state.userWeiTransfer = 10 // initial user balance (10)
+        state.userTokenTransfer = 11 // initial user balance (11)
+        state.initHubReserveWei = initHubReserveWei
+        state.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, state, tx, true)
+      })
 
     })
   })
