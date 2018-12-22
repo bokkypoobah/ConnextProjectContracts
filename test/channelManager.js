@@ -1905,7 +1905,6 @@ contract("ChannelManager", accounts => {
       await verifyEmptyChannel(viewer, update, tx, true)
     })
 
-    // start exit w/ chain state, challenge with pending update
     // 1. generate pending (#1)
     // 2. startExit (#0)
     // 3. emptyChannelWithChallenge (#1)
@@ -2114,6 +2113,72 @@ contract("ChannelManager", accounts => {
       update2.txCountChain = update.txCountChain - 1 // revert onchain operation
 
       await verifyEmptyChannel(viewer, update2, tx, true)
+    })
+
+    // 1. generate pending (#1)
+    // 2. channel update (#2 - does not resolve pending)
+    // 3. channel update again (#3 - does not resolve pending)
+    // 4. commit #1 via authorized update
+    // 5. startExitWithUpdate (uses #2)
+    // 6. emptyChannelWithChallenge (#3)
+    it.only('challenge a startExitWithUpdate update on a pending state', async () => {
+      viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+      // 1. generate, and sign a pending deposit update
+      const deposit = getDepositArgs("empty", {
+        ...state,
+        depositWeiUser: 5,
+        depositTokenUser: 54,
+        depositWeiHub: 49,
+        depositTokenHub: 2,
+        timeout: 0
+      })
+
+      const update = sg.proposePendingDeposit(state, deposit)
+      update.sigUser = await getSig(update, viewer)
+      update.sigHub = await getSig(update, hub)
+
+      // 2. generate a valid payment update on the pending deposit update
+      const payment = getPaymentArgs("empty", {
+        ...update,
+        amountWei: 3,
+        amountToken: 0,
+        recipient: 'hub'
+      })
+
+      const update2 = validator.generateChannelPayment(update, payment)
+      update2.sigUser = await getSig(update2, viewer)
+      update2.sigHub = await getSig(update2, hub)
+
+      // 3. generate another valid payment update on the pending deposit update
+      const payment2 = getPaymentArgs("empty", {
+        ...update2,
+        amountWei: 0,
+        amountToken: 5,
+        recipient: 'hub'
+      })
+
+      const update3 = validator.generateChannelPayment(update2, payment2)
+      update3.sigUser = await getSig(update3, viewer)
+      update3.sigHub = await getSig(update3, hub)
+
+      // 4. start exit with the first payment
+      await startExitWithUpdate(update2, viewer, 0)
+
+      // set the user initial wei balance here b/c they pay startExit gas
+      viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+
+      // 5. challenge with the second payment
+      const tx = await emptyChannelWithChallenge(update3, hub, 0)
+
+      // user/hub withdrawn balances should reflect initial balance and payment
+      update3.userWeiTransfer = 7 // initial user balance (10) - payment (3)
+      update3.userTokenTransfer = 6 // initial user balance (11) - payment (5)
+      update3.initHubReserveWei = initHubReserveWei
+      update3.initHubReserveToken = initHubReserveToken
+      update3.txCountChain = update.txCountChain - 1 // revert onchain operation
+
+      await verifyEmptyChannel(viewer, update3, tx, true)
     })
 
     describe('failing requires', () => {
@@ -2334,24 +2399,12 @@ contract("ChannelManager", accounts => {
   // TODO might be worth doing these in their own section
   // - separate from contract unit tests
 
-  // start exit w/ pending state, challenge with resolved state
   // start exit w/ pending state, resolve, challenge with new pending
   //
   //
-  // start exit w/ pending update, challenge with later update
-  // 1. generate pending (#1)
-  // 2. channel update (#2 - does not resolve pending)
-  // 3. startExitWithUpdate (#1)
-  // 3. emptyChannelWithChallenge (#2)
   //
   //
   // ???
-  // 1. generate pending (#1)
-  // 2. channel update (#2 - does not resolve pending)
-  // 2. channel update again (#3 - does not resolve pending)
-  // 3. commit #1 via authorized update
-  // 4. startExitWithUpdate (uses #2)
-  // 5. emptyChannelWithChallenge (#3)
 
   /*
   describe('from hub startExit', () => {
