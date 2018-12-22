@@ -278,14 +278,8 @@ async function submitHubAuthorized(userAccount, hubAccount, wei = 0, ...override
 let cm, token, hub, performer, viewer, state, validator, initHubReserveWei,
   initHubReserveToken, challengePeriod
 
-// TODO - because we're testing the JS, we should also be testing
-// that we properly handle BigNumbers, and use them in our tests
-// Specifically, test the high possible value of uint256
-
 contract("ChannelManager", accounts => {
   let snapshotId
-
-  // TODO add verification of reserves by including initital reserve values
 
   // asserts that the onchain-channel state matches provided offchain state
 
@@ -579,7 +573,7 @@ contract("ChannelManager", accounts => {
         assert.equal(+totalChannelWei, 10)
 
         const hubReserveWei = await cm.getHubReserveWei()
-        assert.equal(hubReserveWei, 0)
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei)
       })
 
       it('user deposit token', async () => {
@@ -602,7 +596,7 @@ contract("ChannelManager", accounts => {
         assert.equal(+totalChannelWei, 0)
 
         const hubReserveWei = await cm.getHubReserveWei()
-        assert.equal(hubReserveWei, 0)
+        hubReserveWei.should.be.bignumber.equal(initHubReserveWei)
       })
 
       // userAuthorizedDeposit - real world sim
@@ -882,20 +876,6 @@ contract("ChannelManager", accounts => {
         update.sigHub = await getSig(update, hub)
 
         await userAuthorizedUpdate(update, hub, 10).should.be.rejectedWith('user can not be hub')
-      })
-
-      //TODO how do we test this?
-      it.skip('fails when sender is contract', async () => {
-        const timeout = minutesFromNow(5)
-        const deposit = getDepositArgs("empty", {
-          ...state,
-          depositWeiUser: 10,
-          timeout
-        })
-        const update = validator.generateProposePendingDeposit(state, deposit)
-        update.sigHub = await getSig(update, hub)
-
-        await userAuthorizedUpdate(update, cm.address, 0).should.be.rejectedWith('user can not be channel manager')
       })
 
       it('fails when hub signature is incorrect (long test)', async () => {
@@ -1256,8 +1236,6 @@ contract("ChannelManager", accounts => {
         const hubReserveToken = await cm.getHubReserveTokens()
         hubReserveToken.should.be.bignumber.equal(initHubReserveToken - 25);
       })
-
-      // TODO exchange in channel, then withdraw
     })
 
     describe("failing requires", () => {
@@ -1691,11 +1669,6 @@ contract("ChannelManager", accounts => {
           assert.equal(recipientBalance, 1)
         })
       })
-
-
-      // 3. Exchange
-      // 4. Recipient
-
     })
   })
 
@@ -2618,8 +2591,6 @@ contract("ChannelManager", accounts => {
 
         await emptyChannelWithChallenge(update, hub, 0).should.be.rejectedWith('tokens must be conserved')
       })
-
-      //TODO Reverts if token transfer fails - how can this happen?
     })
   })
 
@@ -2706,6 +2677,26 @@ contract("ChannelManager", accounts => {
     })
 
     describe('edge cases', () => {
+      // 1. user start exit -> hub immediately emptyChannel
+      // 2. user start exit -> user emptyChannel after timeout
+      // 3/4 same but hub starts
+      // 5. user startExitWithUpdate -> hub emptyChannel
+      // 6. user startExitWithUpdate -> user emptyChannel after timeout
+      // 7/8 same but hub starts
+
+
+      it('empty after viewer startExit', async () => {
+        await startExit(state, viewer, 0)
+        viewer.initWeiBalance = await web3.eth.getBalance(viewer.address)
+        viewer.initTokenBalance = await token.balanceOf(viewer.address)
+
+        const tx = await emptyChannel(state, hub, 0)
+        state.userWeiTransfer = 10 // initial user balance (10)
+        state.userTokenTransfer = 11 // initial user balance (11)
+        state.initHubReserveWei = initHubReserveWei
+        state.initHubReserveToken = initHubReserveToken
+        await verifyEmptyChannel(viewer, state, tx, true)
+      })
 
     })
   })
