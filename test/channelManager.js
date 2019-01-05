@@ -9,9 +9,7 @@ const CM = artifacts.require("./ChannelManager.sol")
 const HST = artifacts.require("./HumanStandardToken.sol")
 
 /* Connext Client */
-const { Utils } = require("../client/dist/Utils.js");
-const { StateGenerator } = require("../client/dist/StateGenerator.js")
-const { Validator } = require("../client/dist/validator.js")
+const { Utils, StateGenerator, Validator } = require("connext");
 const { convertChannelState, convertDeposit, convertExchange, convertWithdrawal,
   convertProposePending
 } = require("../client/dist/types")
