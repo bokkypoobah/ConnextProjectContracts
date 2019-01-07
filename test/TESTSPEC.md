@@ -361,10 +361,10 @@ Test requires
 - TESTME Fails if the thread closing time is not 0 (thread has already resolved dispute and been emptied)
 - TESTME Fails if any _verifyThread reqs fail
 - TESTME Fails if the updateTxCount is not higher than 0
-- TESTME Fails if wei balances are not conserved
-- TESTME Fails if token balances are not conserved
+- TESTME Fails if wei balances are not equal to sender's initial balance
+- TESTME Fails if token balances are not equal to sender's initial balance
 - TESTME all requires associated with _verifyThread for the update
-- TODO REDALERT Where is the "recipient balances may only increase" check here??
+- TODO Where is the "recipient balances may only increase" check here??
     - Do we need this?
     - We should have it for consistency at least, even if it's not possible to steal funds here
 
@@ -374,6 +374,45 @@ Test inputs
 Test states
 - TESTME check that balances, txCount and threadClosingTime are set appropriately in success case
 
+#### challengeThread
+
+Test requires
+- TESTME Fails if msg.sender is not either the sender, receiver or hub
+- TESTME Fails if now < the thread closing time (thread has already been settled)
+- TESTME Fails if now < the thread closing time (thread exit has not yet started)
+- TESTME Fails if the submitted txCount is not higher than current txCount
+- TESTME Fails if wei balances are not conserved
+- TESTME Fails if token balances are not conserved
+- TESTME Fails if either wei or token balances decrease
+- TESTME Fails if any _verifyThread req fails
+
+Test inputs
+- No user here... noice
+
+Test state
+- TESTME verify that balances and txCount are correctly set in success case
+
+#### emptyThread
+
+Test requires
+- TESTME Fails if user's channel is not in thread dispute status
+- TESTME Fails if msg.sender is not the hub or user
+- TESTME Fails if the user is not sender or receiver
+- TESTME Fails if the initial receiver balances are not 0
+- TESTME Fails if the thread closing time has not passed (still in dispute)
+- TESTME Fails if the thread closing time is 0 (exit not started)
+- TESTME Fails if the user attempts to empty an already emptied thread
+- TESTME Fails if any _verifyThread req fails
+- TESTME Fails if wei balances are not equal to sender's initial balance
+- TESTME Fails if token balances are not equal to sender's initial balance
+- TESTME Fails if token transfer fails
+
+Test state
+- TESTME correct totalChannelWei and totalChannelTokens after thread is emptied in success case
+- TESTME correct wei and token transfer if user == receiver
+- TESTME correct wei and token transfer if user == sender
+- TESTME correct thread.emptied, threadCount in success case
+- TESTME channel state correctly reinitialized if threadCount == 0
 
 #### startExit
 
