@@ -414,6 +414,19 @@ Test state
 - TESTME correct thread.emptied, threadCount in success case
 - TESTME channel state correctly reinitialized if threadCount == 0
 
+#### nukeThreads
+
+Test requires
+- TESTME Fails if user is hub
+- TESTME Fails if user is channel manager
+- TESTME Fails if channel is not in ThreadDispute
+- TESTME Fails if channel closing time + 10 challenge periods has not yet passed
+- TESTME Fails if token withdrawal transfer fails
+
+Test states
+- TESTME correctly reduces totalChannelWei and totalChannelToken in success case
+- TESTME correctly reinitializes channel params in success case
+
 #### startExit
 
 Test requires
