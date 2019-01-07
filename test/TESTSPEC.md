@@ -19,7 +19,7 @@ Expect
 1. Fails when sent wei (not payable)
     - with "VM Exception while processing transaction: revert"
 1. Fails if `msg.sender` is not hub
-    - with TODO
+    - with 
 2. Fails if channel status is not `Open`.
     - with "channel must be open"
 3. Fails if timeout is not 0 and `timeout <= now`
@@ -60,25 +60,20 @@ Expect
     - fails with "user signature invalid"
 23. Fails if threadRoot is incorrect in state
     - fails with "user signature invalid"
-    - note: this should be empty for this release! TODO verify that this is validated on client/hub 
 24. Fails if threadCount is incorrect in state
     - fails with "user signature invalid"
-    - note: this should be zero for this release! TODO verify that this is validated on client/hub
 25. Fails if timeout is incorrect in state
     - fails with "user signature invalid"
 26. Fails if user is not the signer of sigUser
     - with "user signature invalid"
-27. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
-28. TESTME same as above for tokens
-29. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
-30. TESTME same for tokens
-31. TESTME verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
-32. TESTME verify that channelBalances[0] stays the same in the case that withdraws >= deposits
-33. TESTME same as above for channelBalances[1] in case where deposits are greater than withdrawals
-34. TESTME same as above for channelBalances[1] in case where withdrawals >= deposits
-35. TESTME Fails if token transfer for withdrawal fails
-    - with "user token withdrawal transfer failed"
-    - TODO how could this fail?
+27. totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
+28. same as above for tokens
+29. verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
+30. same for tokens
+31. verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
+32. verify that channelBalances[0] stays the same in the case that withdraws >= deposits
+33. same as above for channelBalances[1] in case where deposits are greater than withdrawals
+34. same as above for channelBalances[1] in case where withdrawals >= deposits
 
 Scenario:
 
@@ -147,19 +142,16 @@ Expect
     - fails with either "hub signature invalid"
 26. Fails if hub is not the signer of sigHub
     - with "hub signature invalid"
-27. TESTME Fails if user token transferFrom fails (token transfer not approved)
+27. Fails if user token transferFrom fails (token transfer not approved)
     - with "user token deposit failed"
-28. TESTME verify that totalChannelWei is increased by depposits and decreased by withdrawals as expected in success case
-29. TESTME same for tokens
-30. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
-31.  TESTME same for tokens
-32. TESTME verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
-33. TESTME verify that channelBalances[0] stays the same in the case that withdraws >= deposits
-34. TESTME same as above for channelBalances[1] in case where deposits are greater than withdrawals
-35. TESTME same as above for channelBalances[1] in case where withdrawals >= deposits
-36. TESTME Fails if token transfer for withdrawal fails
-    - with "user token withdrawal transfer failed"
-    - TODO how could this fail?
+28. verify that totalChannelWei is increased by depposits and decreased by withdrawals as expected in success case
+29. same for tokens
+30. verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
+31. same for tokens
+32. verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
+33. verify that channelBalances[0] stays the same in the case that withdraws >= deposits
+34. same as above for channelBalances[1] in case where deposits are greater than withdrawals
+35. same as above for channelBalances[1] in case where withdrawals >= deposits
 
 Scenario:
 
@@ -236,15 +228,15 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
     - with "wei must be conserved"
 20. Fails if offchain token balances exceed onchain tokens
     - with "tokens must be conserved"
-21. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
-22. TESTME same as above for tokens
-23. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
-24. TESTME same for tokens
-25. TESTME verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
-26. TESTME verify that channelBalances[0] stays the same in the case that withdraws >= deposits
-27. TESTME same as above for channelBalances[1] in case where deposits are greater than withdrawals
-28. TESTME same as above for channelBalances[1] in case where withdrawals >= deposits
-TODO Test possible states for revertPendingUpdates
+21. totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
+22. same as above for tokens
+23. verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
+24. same for tokens
+25. verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
+26. verify that channelBalances[0] stays the same in the case that withdraws >= deposits
+27. same as above for channelBalances[1] in case where deposits are greater than withdrawals
+28. same as above for channelBalances[1] in case where withdrawals >= deposits
+29. All possible states for revertPendingUpdates
 
 ### emptyChannelWithChallenge
 1. Fails if channel is not in dispute status
@@ -289,22 +281,20 @@ TODO Test possible states for revertPendingUpdates
     - with "global txCount must be higher than the current global txCount"
 21. Fails if `txCount[1] < channel.txCount[1]`
     - with "onchain txCount must be higher or equal to the current onchain txCount"
-22. TESTME Fails if wei balances are greater than `channel.weiBalances[2]`
+22. Fails if wei balances are greater than `channel.weiBalances[2]`
     - with "wei must be conserved"
-23. TESTME Fails if token balances are greater than `channel.tokenBalances[2]`
+23. Fails if token balances are greater than `channel.tokenBalances[2]`
     - with "tokens must be conserved"
-24. TESTME totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
-25. TESTME same as above for tokens
-26. TESTME verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
-27. TESTME same for tokens
-28. TESTME verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
-29. TESTME verify that channelBalances[0] stays the same in the case that withdraws >= deposits
-30. TESTME same as above for channelBalances[1] in case where deposits are greater than withdrawals
-31. TESTME same as above for channelBalances[1] in case where withdrawals >= deposits
-TODO Test possible states for revertPendingUpdates
-32. TESTME Fails if token transfer fails 
-    - with "user token withdrawal transfer failed"
-33. TESTME verify correct `totalChannelWei` and `totalChannelToken` decrease in success case. (also other vars)
+24. totalChannelWei is increased by deposits and decreased by withdrawals as expected in success case
+25. same as above for tokens
+26. verify that channel total balances (weiBalances[2]) are increased by deposits and decreased by withdrawals as expected in success case
+27. same for tokens
+28. verify that channelBalances[0] is successfully updated based on pending deposit withdraw in the case that deposits are greater than withdrawals
+29. verify that channelBalances[0] stays the same in the case that withdraws >= deposits
+30. same as above for channelBalances[1] in case where deposits are greater than withdrawals
+31. same as above for channelBalances[1] in case where withdrawals >= deposits
+32. All possible states for revertPendingUpdates
+33. verify correct `totalChannelWei` and `totalChannelToken` decrease in success case. (also other vars)
 
 ### emptyChannel
 
@@ -316,13 +306,19 @@ TODO Test possible states for revertPendingUpdates
     - with "channel must be in dispute"
 4. Fails if channel closing time has not passed and `msg.sender` is the exit initiator
     - with "channel closing time must have passed or msg.sender must be non-exit-initiating party"
-5. Fails if token transfer fails
-    - with "user token withdrawal transfer failed"
-6. TESTME verify that correct amounts are transferred during success case and that all state is updated correctly
+5. verify that correct amounts are transferred during success case and that all state is updated correctly
 
 ## Unilateral Thread Tests
 
-MOSTLY PUNT
+### startExitThread
+
+### startExitThreadWithUpdate
+
+### challengeThread
+
+### emptyThread
+
+### nukeThreads
 
 ## ---- Arjun Temporary Notes ----
 
@@ -579,8 +575,57 @@ Test inputs
 
 #### _verifyThread
 
-PUNT
+Test requires:
+- TESTME Fails if sender is receiver
+    - with "sender can not be receiver"
+- TESTME Fails if sender or receiver is hub
+    - with "hub can not be sender or receiver"
+- TESTME Fails if the sender or receiver is contract
+    - with "channel manager can not be sender or receiver"
+- TESTME Fails if contract address is incorrect in signature
+    - with "signature invalid"
+- TESTME Fails if sender is incorrect in sig
+    - with "signature invalid"
+- TESTME Fails if receiver is incorrect in sig
+    - with "signature invalid"
+- TESTME Fails if threadId is incorrect in sig
+    - with "signature invalid"
+- TESTME Fails if weiBalances are incorrect in sig
+    - with "signature invalid"
+- TESTME Fails if tokenBalances are incorrect in sig
+    - with "signature invalid"
+- TESTME Fails if txCount is incorrect in sig
+    - with "signature invalid"
+- TESTME Fails if signature signer is not the sender
+    - with "signature invalid"
+- TESTME Fails if initial state is not contained in the root hash (incorrect proof)
+    - with "initial thread state is not contained in threadRoot"
+- TESTME Fails if initial state is not contained in the root hash (incorrect state)
+    - with "initial thread state is not contained in threadRoot"
+
+Test inputs:
+N/A
+
+Test states:
+N/A
+
+Notes:
+- We only do the proof of inclusion if `threadRoot != bytes32(0x0)`. Why?
+    - Under what conditions is the root 0x0?
+        - It should _only_ be 0x0 if there are no threads open
+        - If there are no threads open, thread disputes should _not_ be called. Thread disputes are the only way to get to _verifyThread
+    - What happens if we call a thread dispute fn with no threads open?
+        - Should fail because the channel status will not be ThreadDispute. 
+            - Status is set on channel dispute empty if threadCount > 0.
+            - Status is removed on emptyThread if threadCount == 0
+    - Can we save a 0x0 threadRoot in a channel even if there are threads open?
+        - If both parties agree and include it in the state, then yes
+        - Is there any reason we would want to do this?
+            - Not really.
+            - Bad thing: both parties can make their thread initial state _anything_ and this could let them steal from the hub's channel balance on the receiver side (if hub has more deposited in the receiver channel than the sender has deposited in their channel)
+            - This is unlikely to happen since the hub _shouldn't_ sign a thread open update with a 0x0 root hash
+    - TODO REDALERT: Remove (threadRoot != bytes(0x0)) if statement. If the root is 0x0 with open threads it SHOULD FAIL.
 
 #### _isContained
 
-PUNT
+Nothing to check here, pure function that has been tested for accuracy in success cases
