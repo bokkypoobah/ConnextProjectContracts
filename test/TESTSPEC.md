@@ -322,6 +322,59 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 
 ## ---- Arjun Temporary Notes ----
 
+#### startExitThread
+
+Test requires
+- TESTME Fails if channel is not in ThreadDispute
+- TESTME Fails if msg.sender is not either the user or hub
+- TESTME Fails if the user is not the sender or receiver
+- TESTME Fails if the initial receiver balances are not zero
+- TESTME Fails if the thread closing time is not 0 (thread is already in dispute)
+- TESTME Fails if the thread closing time is not 0 (thread has already resolved dispute and been emptied)
+- TESTME Fails if any _verifyThread reqs fail
+
+Test inputs
+- What happens if the submitted user is fake?
+    - User has to represent a channel associated with sender or receiver
+    - This means one party MUST be in ThreadDispute
+    - Can we use the other party's ongoing dispute to dispute our own thread before they do?
+        - No, msg.sender must be hub or user
+- Sender/receiver are validated in _verifyThread
+    - Can you submit a wrong sig + wrong sender receiver to bypass this?
+        - No, because your submitted user would trigger retrieving the associated threadRoot and the root check would fail
+- Can't replay old threadId since it's also checked in sig
+- Same with balances
+- What happens if you submit the wrong proof?
+    - Will fail root check
+
+Test states
+- TESTME Make sure balances and threadClosingTime is set appropriately in success case
+
+#### startExitThreadWithUpdate
+
+Test requires
+- TESTME Fails if channel is not in ThreadDispute
+- TESTME Fails if msg.sender is not either the user or hub
+- TESTME Fails if the user is not the sender or receiver
+- TESTME Fails if the initial receiver balances are not zero
+- TESTME Fails if the thread closing time is not 0 (thread is already in dispute)
+- TESTME Fails if the thread closing time is not 0 (thread has already resolved dispute and been emptied)
+- TESTME Fails if any _verifyThread reqs fail
+- TESTME Fails if the updateTxCount is not higher than 0
+- TESTME Fails if wei balances are not conserved
+- TESTME Fails if token balances are not conserved
+- TESTME all requires associated with _verifyThread for the update
+- TODO REDALERT Where is the "recipient balances may only increase" check here??
+    - Do we need this?
+    - We should have it for consistency at least, even if it's not possible to steal funds here
+
+Test inputs
+- same as startExitThread
+
+Test states
+- TESTME check that balances, txCount and threadClosingTime are set appropriately in success case
+
+
 #### startExit
 
 Test requires
@@ -612,7 +665,8 @@ N/A
 Notes:
 - We only do the proof of inclusion if `threadRoot != bytes32(0x0)`. Why?
     - Under what conditions is the root 0x0?
-        - It should _only_ be 0x0 if there are no threads open
+        - Can be 0x0 when we're updating thread and dont need to check root
+        - Also can be 0x0 if there are no threads open
         - If there are no threads open, thread disputes should _not_ be called. Thread disputes are the only way to get to _verifyThread
     - What happens if we call a thread dispute fn with no threads open?
         - Should fail because the channel status will not be ThreadDispute. 
@@ -624,7 +678,7 @@ Notes:
             - Not really.
             - Bad thing: both parties can make their thread initial state _anything_ and this could let them steal from the hub's channel balance on the receiver side (if hub has more deposited in the receiver channel than the sender has deposited in their channel)
             - This is unlikely to happen since the hub _shouldn't_ sign a thread open update with a 0x0 root hash
-    - TODO REDALERT: Remove (threadRoot != bytes(0x0)) if statement. If the root is 0x0 with open threads it SHOULD FAIL.
+    - TODO Should we keep this or find another way to avoid checking root hash for thread updates?
 
 #### _isContained
 
