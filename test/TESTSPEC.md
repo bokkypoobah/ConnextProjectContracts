@@ -311,14 +311,199 @@ TODO: some of these will only apply to one of `userAuthorizedUpdate` or `hubAuth
 ## Unilateral Thread Tests
 
 ### startExitThread
+1. TESTME Fails if channel is not in ThreadDispute
+2. TESTME Fails if msg.sender is not either the user or hub
+3. TESTME Fails if the user is not the sender or receiver
+4. TESTME Fails if the initial receiver balances are not zero
+5. TESTME Fails if the thread closing time is not 0 (thread is already in dispute)
+6. TESTME Fails if the thread closing time is not 0 (thread has already resolved dispute and been emptied)
+7. TESTME Fails if sender is receiver
+    - with "sender can not be receiver"
+8. TESTME Fails if sender or receiver is hub
+    - with "hub can not be sender or receiver"
+9. TESTME Fails if the sender or receiver is contract
+    - with "channel manager can not be sender or receiver"
+10. TESTME Fails if contract address is incorrect in signature
+    - with "signature invalid"
+11. TESTME Fails if sender is incorrect in sig
+    - with "signature invalid"
+12. TESTME Fails if receiver is incorrect in sig
+    - with "signature invalid"
+13. TESTME Fails if threadId is incorrect in sig
+    - with "signature invalid"
+14. TESTME Fails if weiBalances are incorrect in sig
+    - with "signature invalid"
+15. TESTME Fails if tokenBalances are incorrect in sig
+    - with "signature invalid"
+16. TESTME Fails if txCount is incorrect in sig
+    - with "signature invalid"
+17. TESTME Fails if signature signer is not the sender
+    - with "signature invalid"
+18. TESTME Fails if initial state is not contained in the root hash (incorrect proof)
+    - with "initial thread state is not contained in threadRoot"
+19. TESTME Fails if initial state is not contained in the root hash (incorrect state)
+    - with "initial thread state is not contained in threadRoot"
+20. TESTME Make sure balances and threadClosingTime is set appropriately in success case
+
+Scenarios:
+
+1. Sender starts exit
+2. Receiver starts exit
+3. Hub starts exit 
+4. Sender starts exit on a thread that is already being exited by receiver (different channel)
+5. Sender starts exit on a thread that is already being exited by hub (same channel)
 
 ### startExitThreadWithUpdate
 
+1. TESTME Fails if channel is not in ThreadDispute
+2. TESTME Fails if msg.sender is not either the user or hub
+3. TESTME Fails if the user is not the sender or receiver
+4. TESTME Fails if the initial receiver balances are not zero
+5. TESTME Fails if the thread closing time is not 0 (thread is already in dispute)
+6. TESTME Fails if the thread closing time is not 0 (thread has already resolved dispute and been emptied)
+7. TESTME Fails if any _verifyThread reqs fail
+8. TESTME Fails if the updateTxCount is not higher than 0
+9. TESTME Fails if wei balances are not equal to sender's initial balance
+10. TESTME Fails if token balances are not equal to sender's initial balance
+11. TESTME Fails if sender is receiver
+    - with "sender can not be receiver"
+12. TESTME Fails if sender or receiver is hub
+    - with "hub can not be sender or receiver"
+13. TESTME Fails if the sender or receiver is contract
+    - with "channel manager can not be sender or receiver"
+14. TESTME Fails if contract address is incorrect in signature
+    - with "signature invalid"
+15. TESTME Fails if sender is incorrect in sig
+    - with "signature invalid"
+16. TESTME Fails if receiver is incorrect in sig
+    - with "signature invalid"
+17. TESTME Fails if threadId is incorrect in sig
+    - with "signature invalid"
+18. TESTME Fails if weiBalances are incorrect in sig
+    - with "signature invalid"
+19. TESTME Fails if tokenBalances are incorrect in sig
+    - with "signature invalid"
+20. TESTME Fails if txCount is incorrect in sig
+    - with "signature invalid"
+21. TESTME Fails if signature signer is not the sender
+    - with "signature invalid"
+22. TESTME Fails if initial state is not contained in the root hash (incorrect proof)
+    - with "initial thread state is not contained in threadRoot"
+23. TESTME Fails if initial state is not contained in the root hash (incorrect state)
+    - with "initial thread state is not contained in threadRoot"
+24. TESTME check that balances, txCount and threadClosingTime are set appropriately in success case
+
+Scenarios
+
+1. Sender starts
+2. Receiver starts
+3. Hub starts
+4. Sender starts exit on a thread that is already being exited by receiver (different channel)
+5. Sender starts exit on a thread that is already being exited by hub (same channel)
+6. Update contains no change to balances
+
+
 ### challengeThread
+
+1. TESTME Fails if msg.sender is not either the sender, receiver or hub
+2. TESTME Fails if now < the thread closing time (thread has already been settled)
+3. TESTME Fails if now < the thread closing time (thread exit has not yet started)
+4. TESTME Fails if the submitted txCount is not higher than current txCount
+5. TESTME Fails if wei balances are not conserved
+6. TESTME Fails if token balances are not conserved
+7. TESTME Fails if either wei or token balances decrease
+8. TESTME Fails if sender is receiver
+    - with "sender can not be receiver"
+9. TESTME Fails if sender or receiver is hub
+    - with "hub can not be sender or receiver"
+10. TESTME Fails if the sender or receiver is contract
+    - with "channel manager can not be sender or receiver"
+11. TESTME Fails if contract address is incorrect in signature
+    - with "signature invalid"
+12. TESTME Fails if sender is incorrect in sig
+    - with "signature invalid"
+13. TESTME Fails if receiver is incorrect in sig
+    - with "signature invalid"
+14. TESTME Fails if threadId is incorrect in sig
+    - with "signature invalid"
+15. TESTME Fails if weiBalances are incorrect in sig
+    - with "signature invalid"
+16. TESTME Fails if tokenBalances are incorrect in sig
+    - with "signature invalid"
+17. TESTME Fails if txCount is incorrect in sig
+    - with "signature invalid"
+18. TESTME Fails if signature signer is not the sender
+    - with "signature invalid"
+19. TESTME Fails if initial state is not contained in the root hash (incorrect proof)
+    - with "initial thread state is not contained in threadRoot"
+20. TESTME Fails if initial state is not contained in the root hash (incorrect state)
+    - with "initial thread state is not contained in threadRoot"
+21. TESTME verify that balances and txCount are correctly set in success case
+
+Scenarios
+1. sender calls
+2. receiver calls
+3. hub calls
+4. sender calls twice successfully
 
 ### emptyThread
 
+1. TESTME Fails if user's channel is not in thread dispute status
+2. TESTME Fails if msg.sender is not the hub or user
+3. TESTME Fails if the user is not sender or receiver
+4. TESTME Fails if the initial receiver balances are not 0
+5. TESTME Fails if the thread closing time has not passed (still in dispute)
+6. TESTME Fails if the thread closing time is 0 (exit not started)
+7. TESTME Fails if the user attempts to empty an already emptied thread
+8. TESTME Fails if sender is receiver
+    - with "sender can not be receiver"
+9. TESTME Fails if sender or receiver is hub
+    - with "hub can not be sender or receiver"
+10. TESTME Fails if the sender or receiver is contract
+    - with "channel manager can not be sender or receiver"
+11. TESTME Fails if contract address is incorrect in signature
+    - with "signature invalid"
+12. TESTME Fails if sender is incorrect in sig
+    - with "signature invalid"
+13. TESTME Fails if receiver is incorrect in sig
+    - with "signature invalid"
+14. TESTME Fails if threadId is incorrect in sig
+    - with "signature invalid"
+15. TESTME Fails if weiBalances are incorrect in sig
+    - with "signature invalid"
+16. TESTME Fails if tokenBalances are incorrect in sig
+    - with "signature invalid"
+17. TESTME Fails if txCount is incorrect in sig
+    - with "signature invalid"
+18. TESTME Fails if signature signer is not the sender
+    - with "signature invalid"
+19. TESTME Fails if initial state is not contained in the root hash (incorrect proof)
+    - with "initial thread state is not contained in threadRoot"
+20. TESTME Fails if initial state is not contained in the root hash (incorrect state)
+    - with "initial thread state is not contained in threadRoot"
+21. TESTME Fails if wei balances are not equal to sender's initial balance
+22. TESTME Fails if token balances are not equal to sender's initial balance
+23. TESTME Fails if token transfer fails
+24. TESTME correct params after thread is emptied in success case
+
+Scenarios
+1. Sender empties and then receiver empties
+2. Receiver empties and then sender empties
+3. Hub empties both sides
+4. Sender empties and threadCount gets reduced to 0 and then sender deposits
+
 ### nukeThreads
+
+1. TESTME Fails if user is hub
+2. TESTME Fails if user is channel manager
+3. TESTME Fails if channel is not in ThreadDispute
+4. TESTME Fails if channel closing time + 10 challenge periods has not yet passed
+5. TESTME Fails if token withdrawal transfer fails
+6. TESTME correctly reduces totalChannelWei and totalChannelToken and reinitializes channel params in success case
+
+Scenarios
+1. user calls
+2. hub calls and then deposits
 
 ## ---- Arjun Temporary Notes ----
 
