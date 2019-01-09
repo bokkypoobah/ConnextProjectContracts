@@ -915,7 +915,13 @@ Notes:
             - Not really.
             - Bad thing: both parties can make their thread initial state _anything_ and this could let them steal from the hub's channel balance on the receiver side (if hub has more deposited in the receiver channel than the sender has deposited in their channel)
             - This is unlikely to happen since the hub _shouldn't_ sign a thread open update with a 0x0 root hash
-    - TODO Should we keep this or find another way to avoid checking root hash for thread updates?
+    - TODO REDALERT This needs to be changed. There's a vuln here where a user can doublespend the funds within a thread by overriding the agreed upon initial thread state with another "fake" initial state which would invalidate all other thread updates
+        - Ideally we want the proof check to happen if:
+            a. threadRoot != bytes32(0x0) && txCount == 0
+            b. threadRoot == bytes32(0x0) && txCount == 0
+            c threadRoot != bytes32(0x0) && txCount > 0
+            I.e. only NOT in the case that
+            d. threadRoot == bytes32(0x0) && txCount > 0
 
 #### _isContained
 
