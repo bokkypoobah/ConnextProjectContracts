@@ -11,7 +11,7 @@ if(threadRoot != bytes32(0x0)) {
 to
 
 ```
-if(threadRoot != bytes32(0x0) || (threadRoot == bytes32(0x0) && txCount > 0)) {
+if(threadRoot != bytes32(0x0) || (threadRoot == bytes32(0x0) && txCount == 0)) {
     ...
 } 
 ```
@@ -82,7 +82,7 @@ There are 3 other possible cases (all of which should be checked):
 Therefore, to fix the vulnerability, we need to update the conditions under which the inclusion check is skipped to:
 
 ```
-if(threadRoot != bytes32(0x0) || (threadRoot == bytes32(0x0) && txCount > 0)) {
+if(threadRoot != bytes32(0x0) || (threadRoot == bytes32(0x0) && txCount == 0)) {
     // Do inclusion check
 }
 ```
