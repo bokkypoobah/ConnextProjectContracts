@@ -63,15 +63,15 @@ The `emptyChannel` function would notice that `threadCount > 0` and put the chan
 
 Since a 0x0 root hash would bypass the inclusion check, this would mean that the malicious sender could now propose _any_ initial thread state when calling `startExitThread`. To doublespend, the sender could then create an initial thread state for 9 WEI instead of 10 and sign it (recall that only the sender needs to sign since threads are unidirectional). Since all higher `txCount` states would need to conserve the same total WEI in the thread, starting exit with the 9 WEI thread state would invalidate _all_ thread updates (pending payments) held by the receiver.
 
-Bad!
+While invalidating thread updates isn't directly allowing the hub/sender to _steal_ funds, it does violate the principle that actions within payment channels should have finality (that is to say, they cannot be reversed). Invalidating the set of original thread updates here means that the sender/hub are able to get 10 WEI of the receiver's services at the cost of only 1 WEI.
 
-The sender and hub could then exit the thread using the initial state and make back 9 WEI from the 10 WEI that they spent.
+The sender and hub can then exit the thread using the initial state and make back 9 WEI from the 10 WEI that they spent.
 
 ### Remediation
 
 Note that we allow the inclusion check bypass because we want to skip the check in the cases where the initial state of the thread _has already been verified_.
 
-In other words, we want to skip the check _only_ in the case where `threadRoot == bytes32(0x0) && txCount > 0 `.
+In other words, we want to skip the check _only_ in the case where `threadRoot == bytes32(0x0) && txCount > 0 `. (We don't check against threadCount because threadCount must necessarily be greater than zero in order to call this code path).
 
 There are 3 other possible cases (all of which should be checked):
 
