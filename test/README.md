@@ -7,11 +7,11 @@
 
 ## Usage
 
-A (somewhat messy) specification for the tests that are run can be found under TESTSPEC.md.
+A ((messy) specification for the tests that are run can be found under TESTSPEC.md.
 
 ### Running tests
 
-Assuming that the repository has been downloaded, from the `contracts` directory
+Assuming that the repository has been cloned and client is built, from the `contracts` directory
 
 1. run ganache-cli : `npm run ganache`
 2. in a separate terminal window run :
