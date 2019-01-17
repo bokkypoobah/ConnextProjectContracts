@@ -8,11 +8,13 @@
   },
   "scripts": {
     "build": "npm run compile && npm run generate",
+    "client-install": "git clone git@github.com:ConnextProject/connext-client.git && cd connext-client && npm install && npm run build && cd ..",
+    "client-update": "cd connext-client && git pull && npm install && npm run build && cd ..",
     "compile": "node_modules/.bin/truffle compile",
     "ganache": "node_modules/.bin/ganache-cli -m 'refuse result toy bunker royal small story exhaust know piano base stand'",
     "generate": "node_modules/.bin/typechain --target=web3-1.0.0 --outDir ./build/ts/ './build/contracts/*.json'",
     "migrate": "node_modules/.bin/truffle migrate",
-    "prepare": "npm run build",
+    "prepare": "npm run build && npm run client-install",
     "test:debug": "node --inspect-brk ./node_modules/truffle/build/cli.bundled.js test test/channelManager.js --network=ganache",
     "test": "node_modules/.bin/truffle test test/channelManager.js --network=ganache",
     "test:client": "node_modules/.bin/truffle test test/client.js --network=ganache"
